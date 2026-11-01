@@ -31,7 +31,7 @@ def test_seed_is_idempotent(tmp_path: Path) -> None:
         assert seed_demo_data(session) is False
     with database.session() as session:
         assert session.scalar(select(func.count()).select_from(Calendar)) == 1
-        assert session.scalar(select(func.count()).select_from(Call)) == 2
+        assert session.scalar(select(func.count()).select_from(Call)) == 4
         assert session.scalar(select(func.count()).select_from(Booking)) == 2
 
     database.dispose()

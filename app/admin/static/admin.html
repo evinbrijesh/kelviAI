@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VaaniKit admin</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --border: #e2e5ea;
+    --text: #171a1f;
+    --muted: #5b6470;
+    --accent: #2d5b86;
+    --ok: #1c7a4c;
+    --warn: #946200;
+    --error: #b0271c;
+    --chip: #eef1f5;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #13161a;
+      --surface: #1a1e24;
+      --border: #2a3039;
+      --text: #e9ecf1;
+      --muted: #9aa4b2;
+      --accent: #8db6dc;
+      --ok: #5cc98b;
+      --warn: #e0b155;
+      --error: #f08c84;
+      --chip: #232932;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand { font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+  .brand span { color: var(--muted); font-weight: 500; }
+
+  .pill {
+    font: 600 11px/1 var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    border-radius: 999px;
+    padding: 5px 9px;
+  }
+
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 22px 20px 72px; }
+
+  .notice {
+    margin: 0 0 20px;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .stat dt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat dd { margin: 4px 0 0; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .panel, .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+
+  .panel { overflow: hidden; }
+
+  .panel-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .panel-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+
+  .segmented { display: flex; gap: 4px; background: var(--chip); border-radius: 8px; padding: 3px; }
+
+  .segmented button {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13.5px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .segmented button[aria-pressed="true"] {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  }
+
+  .ghost {
+    margin-left: auto;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 13.5px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .ghost:hover { background: var(--chip); }
+
+  .table-wrap { overflow-x: auto; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+
+  th {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: color-mix(in srgb, var(--accent) 4%, transparent); }
+
+  td.numeric { font-variant-numeric: tabular-nums; }
+  td.summary { max-width: 380px; color: var(--muted); }
+
+  .mono { font-family: var(--mono); font-size: 13px; }
+
+  .badge {
+    display: inline-block;
+    font: 600 11.5px/1 var(--mono);
+    padding: 4px 7px;
+    border-radius: 6px;
+    background: var(--chip);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .badge[data-tone="ok"] { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+  .badge[data-tone="warn"] { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+  .badge[data-tone="error"] { color: var(--error); background: color-mix(in srgb, var(--error) 12%, transparent); }
+  .badge[data-tone="info"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+  .link {
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-size: 13.5px;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .status { padding: 18px 14px; color: var(--muted); font-size: 14px; }
+  .status.loading { animation: pulse 1.4s ease-in-out infinite; }
+  .status.error { color: var(--error); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+  .empty { padding: 34px 16px; text-align: center; }
+  .empty p { margin: 0; }
+  .empty .hint { margin-top: 6px; color: var(--muted); font-size: 13.5px; }
+
+  .stack { display: grid; gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; }
+
+  .card { padding: 16px; }
+  .card h2, .card h3 { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
+  .card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+
+  .call-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .call-head h2 { margin: 0; font-size: 18px; font-family: var(--mono); font-weight: 600; }
+  .call-head p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  dl.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0 0; }
+  dl.meta div { min-width: 0; }
+  dl.meta dt { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  dl.meta dd { margin: 3px 0 0; overflow-wrap: anywhere; }
+
+  .resolved-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
+  .resolved-grid dt { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .resolved-grid dd { margin: 3px 0 0; font-size: 17px; font-weight: 600; }
+  .explanation { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
+
+  .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+
+  .event {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 11px;
+  }
+
+  .event[data-kind="tool_call"], .event[data-kind="tool_result"] { border-left-color: var(--accent); }
+  .event[data-kind="error"] { border-left-color: var(--error); background: color-mix(in srgb, var(--error) 6%, transparent); }
+  .event[data-kind="call_started"], .event[data-kind="call_ended"] { border-left-color: var(--ok); }
+
+  .seq { font: 12px/1.5 var(--mono); color: var(--muted); }
+
+  .event-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .event-head .type { font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.05em; }
+  .event-head code { font-size: 12.5px; background: var(--chip); border-radius: 4px; padding: 2px 6px; }
+  .latency { font: 11.5px var(--mono); color: var(--muted); }
+
+  .say { margin: 0; }
+  .payload {
+    margin: 0;
+    font: 12px/1.5 var(--mono);
+    color: var(--muted);
+    background: var(--chip);
+    border-radius: 6px;
+    padding: 8px 10px;
+    max-height: 240px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .back { margin-bottom: 14px; }
+
+  footer { margin-top: 28px; color: var(--muted); font-size: 12.5px; }
+
+  @media (max-width: 760px) {
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-2 { grid-template-columns: minmax(0, 1fr); }
+    td.summary { max-width: 220px; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">VaaniKit <span>admin</span></div>
+  <span class="pill">non-production</span>
+</header>
+
+<main class="wrap">
+  <p class="notice">Synthetic demo data only. Phone numbers are masked in every response. This page is not production secure.</p>
+
+  <section id="dashboard">
+    <dl class="stats" id="stats" aria-label="Clinic summary"></dl>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="list-title">Calls</h2>
+        <div class="segmented" role="group" aria-label="Choose list">
+          <button id="tab-calls" aria-pressed="true">Calls</button>
+          <button id="tab-bookings" aria-pressed="false">Bookings</button>
+        </div>
+        <button class="ghost" id="refresh">Refresh</button>
+      </div>
+      <div id="list-status" class="status" hidden></div>
+      <div id="list-body"></div>
+    </div>
+  </section>
+
+  <section id="detail" hidden>
+    <button class="ghost back" id="back">← All calls</button>
+    <div id="detail-status" class="status" hidden></div>
+    <div id="detail-body"></div>
+  </section>
+
+  <footer>VaaniKit · synthetic clinic demo · JSON API at <span class="mono">/admin</span></footer>
+</main>
+
+<script>
+(() => {
+  const state = { status: null, calls: [], bookings: [], tab: "calls" };
+
+  const dom = {
+    dashboard: document.getElementById("dashboard"),
+    detail: document.getElementById("detail"),
+    stats: document.getElementById("stats"),
+    listTitle: document.getElementById("list-title"),
+    listStatus: document.getElementById("list-status"),
+    listBody: document.getElementById("list-body"),
+    detailStatus: document.getElementById("detail-status"),
+    detailBody: document.getElementById("detail-body"),
+    tabCalls: document.getElementById("tab-calls"),
+    tabBookings: document.getElementById("tab-bookings"),
+    refresh: document.getElementById("refresh"),
+    back: document.getElementById("back"),
+  };
+
+  function el(tag, props = {}, ...children) {
+    const node = document.createElement(tag);
+    for (const [key, value] of Object.entries(props)) {
+      if (value == null) continue;
+      if (key === "class") node.className = value;
+      else if (key === "text") node.textContent = value;
+      else if (key === "dataset") Object.assign(node.dataset, value);
+      else if (key.startsWith("on")) node.addEventListener(key.slice(2).toLowerCase(), value);
+      else node.setAttribute(key, value);
+    }
+    for (const child of children.flat()) {
+      if (child == null) continue;
+      node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+    }
+    return node;
+  }
+
+  async function getJSON(url) {
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return response.json();
+  }
+
+  function formatDateTime(value) {
+    if (!value) return "—";
+    return new Date(value).toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      dateStyle: "medium",
+      timeStyle: "short",
+    }) + " IST";
+  }
+
+  function formatDuration(start, end) {
+    if (!start || !end) return null;
+    const seconds = Math.max(0, Math.round((new Date(end) - new Date(start)) / 1000));
+    return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  }
+
+  function statusTone(status) {
+    if (status === "completed") return "ok";
+    if (status === "failed") return "error";
+    if (status === "transferred") return "warn";
+    return "info";
+  }
+
+  function badge(text, tone) {
+    return el("span", { class: "badge", dataset: tone ? { tone } : {}, text: text || "none" });
+  }
+
+  function setStatus(node, message, kind) {
+    if (!message) {
+      node.hidden = true;
+      node.replaceChildren();
+      node.className = "status";
+      return;
+    }
+    node.hidden = false;
+    node.className = `status ${kind || ""}`.trim();
+    node.replaceChildren(el("span", { text: message }));
+  }
+
+  function showError(node, error, retry, label) {
+    setStatus(node, "", "");
+    node.hidden = false;
+    node.className = "status error";
+    node.replaceChildren(
+      el("span", { text: `${label} (${error.message}).` }),
+      el("button", { class: "ghost", text: "Retry", onclick: retry, style: "margin-left:0" }),
+    );
+  }
+
+  function emptyState(title, hint) {
+    return el("div", { class: "empty" },
+      el("p", { text: title }),
+      el("p", { class: "hint", text: hint }),
+    );
+  }
+
+  function renderStats() {
+    const status = state.status;
+    if (!status) { dom.stats.replaceChildren(); return; }
+    const entries = [
+      ["Calls", status.calls],
+      ["Bookings", status.bookings],
+      ["Calendars", status.calendars],
+      ["Phone masking", status.phone_masking],
+    ];
+    dom.stats.replaceChildren(...entries.map(([label, value]) =>
+      el("div", { class: "stat" },
+        el("dt", { text: label }),
+        el("dd", { text: String(value) }),
+      ),
+    ));
+  }
+
+  function renderCalls() {
+    if (!state.calls.length) {
+      dom.listBody.replaceChildren(emptyState(
+        "No calls yet.",
+        "Run `make simulate SCENARIO=appointment-malayalam` to create one.",
+      ));
+      return;
+    }
+
+    const body = el("tbody", {}, ...state.calls.map((call) =>
+      el("tr", {},
+        el("td", { class: "numeric", text: formatDateTime(call.started_at) }),
+        el("td", { class: "mono", text: call.caller_phone }),
+        el("td", { text: call.language }),
+        el("td", {}, badge(call.status, statusTone(call.status))),
+        el("td", {}, call.outcome ? badge(call.outcome, "info") : el("span", { class: "muted", text: "—" })),
+        el("td", { class: "numeric", text: call.booking_count ? String(call.booking_count) : "—" }),
+        el("td", { class: "summary", text: call.summary || "—" }),
+        el("td", {}, el("button", { class: "link", text: "View", onclick: () => showCall(call.id) })),
+      ),
+    ));
+
+    dom.listBody.replaceChildren(el("div", { class: "table-wrap" },
+      el("table", {},
+        el("thead", {}, el("tr", {},
+          ...["Started", "Caller", "Language", "Status", "Outcome", "Bookings", "Summary", ""]
+            .map((label) => el("th", { text: label, scope: "col" })),
+        )),
+        body,
+      ),
+    ));
+  }
+
+  function renderBookings() {
+    if (!state.bookings.length) {
+      dom.listBody.replaceChildren(emptyState(
+        "No bookings yet.",
+        "Each simulation run books one open slot.",
+      ));
+      return;
+    }
+
+    const body = el("tbody", {}, ...state.bookings.map((booking) =>
+      el("tr", {},
+        el("td", { class: "numeric", text: formatDateTime(booking.slot_start) }),
+        el("td", { text: booking.patient_name }),
+        el("td", { class: "mono", text: booking.caller_phone }),
+        el("td", { text: booking.clinic }),
+        el("td", {}, badge(booking.status, booking.status === "confirmed" ? "ok" : "warn")),
+        el("td", {}, booking.call_id
+          ? el("button", { class: "link mono", text: booking.call_sid, onclick: () => showCall(booking.call_id) })
+          : el("span", { class: "muted", text: "—" })),
+      ),
+    ));
+
+    dom.listBody.replaceChildren(el("div", { class: "table-wrap" },
+      el("table", {},
+        el("thead", {}, el("tr", {},
+          ...["Slot", "Patient", "Caller", "Clinic", "Status", "Call"]
+            .map((label) => el("th", { text: label, scope: "col" })),
+        )),
+        body,
+      ),
+    ));
+  }
+
+  function renderList() {
+    const calls = state.tab === "calls";
+    dom.listTitle.textContent = calls ? "Calls" : "Bookings";
+    dom.tabCalls.setAttribute("aria-pressed", String(calls));
+    dom.tabBookings.setAttribute("aria-pressed", String(!calls));
+    setStatus(dom.listStatus, "", "");
+    if (calls) renderCalls(); else renderBookings();
+  }
+
+  async function loadDashboard() {
+    dom.dashboard.hidden = false;
+    dom.detail.hidden = true;
+    renderStats();
+    setStatus(dom.listStatus, "Loading calls and bookings…", "loading");
+    dom.listBody.replaceChildren();
+
+    try {
+      const [status, calls, bookings] = await Promise.all([
+        getJSON("/admin/status"),
+        getJSON("/admin/calls"),
+        getJSON("/admin/bookings"),
+      ]);
+      state.status = status;
+      state.calls = calls;
+      state.bookings = bookings;
+      renderStats();
+      renderList();
+    } catch (error) {
+      dom.listBody.replaceChildren();
+      showError(dom.listStatus, error, loadDashboard, "Could not load the admin data");
+    }
+  }
+
+  function metaItem(label, value, mono) {
+    return el("div", {},
+      el("dt", { text: label }),
+      el("dd", { class: mono ? "mono" : "", text: value || "—" }),
+    );
+  }
+
+  function renderBookingCard(detail) {
+    if (!detail.bookings.length) {
+      return el("section", { class: "card" },
+        el("h3", { text: "Bookings" }),
+        el("p", { class: "muted", text: "This call did not create a booking." }),
+      );
+    }
+
+    return el("section", { class: "card" },
+      el("h3", { text: "Bookings" }),
+      el("div", { class: "table-wrap" },
+        el("table", {},
+          el("thead", {}, el("tr", {},
+            ...["Slot", "Patient", "Caller", "Status", "Reference"]
+              .map((label) => el("th", { text: label, scope: "col" })),
+          )),
+          el("tbody", {}, ...detail.bookings.map((booking) =>
+            el("tr", {},
+              el("td", { class: "numeric", text: formatDateTime(booking.slot_start) }),
+              el("td", { text: booking.patient_name }),
+              el("td", { class: "mono", text: booking.caller_phone }),
+              el("td", {}, badge(booking.status, booking.status === "confirmed" ? "ok" : "warn")),
+              el("td", { class: "mono", text: `#${booking.id}` }),
+            ),
+          )),
+        ),
+      ),
+    );
+  }
+
+  function renderEvent(event) {
+    const text = typeof event.payload.text === "string" ? event.payload.text : null;
+    return el("li", { class: "event", dataset: { kind: event.event_type } },
+      el("span", { class: "seq", text: `#${event.seq}` }),
+      el("div", {},
+        el("div", { class: "event-head" },
+          el("span", { class: "type", text: event.event_type.replaceAll("_", " ") }),
+          event.tool_name ? el("code", { text: event.tool_name }) : null,
+          event.latency_ms != null ? el("span", { class: "latency", text: `${event.latency_ms} ms` }) : null,
+        ),
+        text
+          ? el("p", { class: "say", text })
+          : el("pre", { class: "payload", text: JSON.stringify(event.payload, null, 2) }),
+      ),
+    );
+  }
+
+  function renderDetail(detail) {
+    const duration = formatDuration(detail.started_at, detail.ended_at);
+    const window = detail.ended_at
+      ? `${formatDateTime(detail.started_at)} → ${formatDateTime(detail.ended_at)}${duration ? ` (${duration})` : ""}`
+      : `Started ${formatDateTime(detail.started_at)} · in progress`;
+
+    const resolved = detail.resolved
+      ? el("section", { class: "card" },
+          el("h3", { text: "Resolved date and time" }),
+          el("dl", { class: "resolved-grid" },
+            el("div", {}, el("dt", { text: "Date" }), el("dd", { text: detail.resolved.date || "—" })),
+            el("div", {}, el("dt", { text: "Time" }), el("dd", { text: detail.resolved.time || "—" })),
+            el("div", {}, el("dt", { text: "Time zone" }), el("dd", { text: detail.resolved.timezone })),
+            el("div", {}, el("dt", { text: "Confidence" }), el("dd", { text: `${Math.round(detail.resolved.confidence * 100)}%` })),
+          ),
+          detail.resolved.explanation
+            ? el("p", { class: "explanation", text: detail.resolved.explanation })
+            : null,
+        )
+      : el("section", { class: "card" },
+          el("h3", { text: "Resolved date and time" }),
+          el("p", { class: "muted", text: "No date or time resolution was recorded for this call." }),
+        );
+
+    const errors = detail.events.filter((event) => event.event_type === "error").length;
+
+    dom.detailBody.replaceChildren(
+      el("div", { class: "stack" },
+        el("article", { class: "card" },
+          el("div", { class: "call-head" },
+            el("div", {},
+              el("h2", { text: detail.call_sid }),
+              el("p", { text: window }),
+            ),
+            el("div", { class: "badges" },
+              badge(detail.status, statusTone(detail.status)),
+              detail.outcome ? badge(detail.outcome, "info") : null,
+              errors ? badge(`${errors} error${errors > 1 ? "s" : ""}`, "error") : null,
+            ),
+          ),
+          el("dl", { class: "meta" },
+            metaItem("Caller", detail.caller_phone, true),
+            metaItem("Language", detail.language),
+            metaItem("Channel", detail.channel),
+            metaItem("Bookings", String(detail.booking_count)),
+          ),
+        ),
+        el("div", { class: "grid-2" },
+          resolved,
+          el("section", { class: "card" },
+            el("h3", { text: "Summary" }),
+            el("p", { text: detail.summary || "No summary recorded for this call." }),
+          ),
+        ),
+        renderBookingCard(detail),
+        el("section", { class: "card" },
+          el("h3", { text: `Events (${detail.events.length})` }),
+          detail.events.length
+            ? el("ol", { class: "timeline" }, ...detail.events.map(renderEvent))
+            : el("p", { class: "muted", text: "No events recorded." }),
+        ),
+      ),
+    );
+  }
+
+  async function openCall(id) {
+    dom.dashboard.hidden = true;
+    dom.detail.hidden = false;
+    dom.detailBody.replaceChildren();
+    document.title = `Call #${id} · VaaniKit admin`;
+    setStatus(dom.detailStatus, `Loading call #${id}…`, "loading");
+
+    try {
+      const detail = await getJSON(`/admin/calls/${id}`);
+      setStatus(dom.detailStatus, "", "");
+      renderDetail(detail);
+      document.title = `${detail.call_sid} · VaaniKit admin`;
+    } catch (error) {
+      showError(dom.detailStatus, error, () => openCall(id), `Could not load call #${id}`);
+    }
+  }
+
+  function showCall(id) {
+    const hash = `#call-${id}`;
+    if (location.hash === hash) openCall(id);
+    else location.hash = hash;
+  }
+
+  function route() {
+    const match = location.hash.match(/^#call-(\d+)$/);
+    if (match) {
+      openCall(Number(match[1]));
+    } else {
+      document.title = "VaaniKit admin";
+      loadDashboard();
+    }
+  }
+
+  function selectTab(tab) {
+    state.tab = tab;
+    renderList();
+  }
+
+  dom.tabCalls.addEventListener("click", () => selectTab("calls"));
+  dom.tabBookings.addEventListener("click", () => selectTab("bookings"));
+  dom.refresh.addEventListener("click", route);
+  dom.back.addEventListener("click", () => { location.hash = ""; });
+  window.addEventListener("hashchange", route);
+
+  route();
+})();
+</script>
+</body>
+</html>

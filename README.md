@@ -53,8 +53,9 @@ docker compose up -d --wait db
 .venv/Scripts/python.exe -m app.scenarios.appointment_malayalam
 ```
 
-The app creates its tables on startup and seeds a synthetic clinic, two demo calls,
-and two demo bookings the first time it runs against an empty database.
+The app creates its tables on startup and seeds a fictional clinic, four demo calls
+(booked, conflict resolved, unresolved, transferred), and two confirmed demo bookings
+the first time it runs against an empty database.
 
 ## Run the simulation
 
@@ -76,16 +77,24 @@ Each run creates one new call and books the next open slot, so the simulation st
 usable on a database that already contains demo bookings. Duplicate and overlapping
 requests are rejected by an overlap check plus a partial unique index in the database.
 
-## Admin API
+## Admin API and dashboard
 
-The admin surface is JSON only and explicitly non-production. Phone numbers are masked
-in every response.
+The admin surface is a dependency-free dashboard at `http://localhost:8000/admin/ui`
+(the root URL redirects there) plus a JSON API. Both are explicitly non-production,
+use synthetic data only, and mask phone numbers in every view.
+
+The dashboard lists calls and bookings, and opens a call detail with the resolved
+date/time, outcome, summary, errors, linked bookings, and a chronological event
+timeline including tool arguments, tool results, and latency. Call details are
+hash-addressable (`#call-N`), and empty, loading, and error states are built in.
 
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /admin` | Index and non-production notice |
-| `GET /admin/calls` | Recent calls |
-| `GET /admin/bookings` | Upcoming bookings |
+| `GET /admin/ui` | Browser dashboard |
+| `GET /admin/calls` | Recent calls with masked caller numbers |
+| `GET /admin/calls/{id}` | Call detail: resolution, events, bookings, errors |
+| `GET /admin/bookings` | Upcoming bookings with clinic and linked call |
 | `GET /admin/status` | Row counts and environment label |
 | `GET /admin/tools` | Tools declared in `agent.yaml` with their argument schemas |
 

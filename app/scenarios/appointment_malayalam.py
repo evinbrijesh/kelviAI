@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.calls.session_log import CallSessionLog, invoke_tool, start_call
 from app.config import AppConfig, Settings, load_config
-from app.db.models import CallStatus
+from app.db.models import CallStatus, EventType
 from app.db.seed import seed_demo_data
 from app.db.session import Database
 from app.llm.registry import AdapterRegistry
@@ -83,6 +83,17 @@ async def run_appointment_call(
         )
 
     requested = resolution.time.strftime("%H:%M")
+    log.record(
+        EventType.DATE_RESOLVED,
+        {
+            "date": resolution.date.isoformat(),
+            "time": requested,
+            "timezone": resolution.timezone,
+            "confidence": resolution.confidence,
+            "explanation": resolution.explanation,
+        },
+    )
+
     day, availability = await _open_day(tools, log, resolution.date)
     if day is None:
         message = str(
