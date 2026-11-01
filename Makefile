@@ -1,24 +1,39 @@
-.PHONY: dev install test lint simulate clean
+.PHONY: dev install test lint simulate clean db-up db-down db-logs
 
 SCENARIO ?= appointment_malayalam
 SCENARIO_MODULE = $(subst -,_,$(SCENARIO))
 
-dev:
-	uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+ifeq ($(OS),Windows_NT)
+VENV_PYTHON := .venv/Scripts/python.exe
+else
+VENV_PYTHON := .venv/bin/python
+endif
+PYTHON ?= $(if $(wildcard $(VENV_PYTHON)),$(VENV_PYTHON),python)
+
+dev: db-up
+	$(PYTHON) -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 install:
-	pip install -e ".[dev]"
+	$(PYTHON) -m pip install -e ".[dev]"
 
 test:
-	pytest
+	$(PYTHON) -m pytest
 
 lint:
-	ruff check .
-	mypy app/
+	$(PYTHON) -m ruff check .
+	$(PYTHON) -m mypy app/
 
 simulate:
-	python -m app.scenarios.$(SCENARIO_MODULE)
+	$(PYTHON) -m app.scenarios.$(SCENARIO_MODULE)
+
+db-up:
+	docker compose up -d --wait db
+
+db-down:
+	docker compose down
+
+db-logs:
+	docker compose logs -f db
 
 clean:
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
+	$(PYTHON) -c "import pathlib, shutil; [shutil.rmtree(p, ignore_errors=True) for p in pathlib.Path('.').rglob('__pycache__')]"
