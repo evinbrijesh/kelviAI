@@ -4,28 +4,98 @@ Open-source Indian-language-first starter kit for building tool-using voice agen
 
 ## Quick Start
 
+Requirements: Python 3.11+, Docker (for PostgreSQL).
+
 ```bash
-# Install dependencies
+# 1. Install dependencies
 make install
 
-# Copy environment file
+# 2. Create your environment file
 cp .env.example .env
-# Edit .env with your Gnani API key and database URL
+# Edit .env and set GNAI_API_KEY_ID
 
-# Start the development server
+# 3. Start PostgreSQL and the API (make dev runs docker compose first)
 make dev
 
-# Check health endpoint
+# 4. Check health
 curl http://localhost:8000/health
 ```
+
+The default `DATABASE_URL` points at `localhost:5432`. If port 5432 is already taken,
+pick another host port:
+
+```bash
+POSTGRES_HOST_PORT=5433 make db-up
+export DATABASE_URL="postgresql://vaanikit:vaanikit@localhost:5433/vaanikit"
+```
+
+Without Docker:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+docker compose up -d --wait db        # or provide your own PostgreSQL
+uvicorn app.main:app --reload
+```
+
+On Windows, install GNU make once, then reopen your terminal:
+
+```bash
+winget install ezwinports.make
+```
+
+The Makefile uses `.venv` automatically when it exists, so activating the virtualenv
+is optional. Without make, run the commands directly:
+
+```bash
+docker compose up -d --wait db
+.venv/Scripts/python.exe -m uvicorn app.main:app --reload
+.venv/Scripts/python.exe -m app.scenarios.appointment_malayalam
+```
+
+The app creates its tables on startup and seeds a synthetic clinic, two demo calls,
+and two demo bookings the first time it runs against an empty database.
+
+## Run the simulation
+
+```bash
+make simulate SCENARIO=appointment-malayalam
+```
+
+The scenario loads `agent.yaml`, builds the adapter registry, resolves a Malayalam
+date/time utterance, and reports the resolved slot. It does not require PostgreSQL.
+
+## Admin API
+
+The admin surface is JSON only and explicitly non-production. Phone numbers are masked
+in every response.
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /admin` | Index and non-production notice |
+| `GET /admin/calls` | Recent calls |
+| `GET /admin/bookings` | Upcoming bookings |
+| `GET /admin/status` | Row counts and environment label |
+| `GET /admin/tools` | Tools declared in `agent.yaml` with their argument schemas |
 
 ## Configuration
 
 Edit `agent.yaml` to configure:
-- Agent language and persona
-- Model settings (Gnani Prisma for STT, Timbre for TTS)
-- Available tools
-- Database connection
+
+- Agent language, greeting, persona, and rules
+- STT/TTS models (Gnani Prisma and Timbre) and the date/time resolver
+- Declared tools and their JSON argument schemas
+- Database connection (via `${DATABASE_URL}`)
+
+Unknown or malformed sections fail startup with a short message instead of a traceback.
+`/health` returns `503` whenever configuration or the database is unavailable.
+
+## Development
+
+```bash
+make test     # pytest
+make lint     # ruff + mypy
+```
 
 ## Documentation
 

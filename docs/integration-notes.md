@@ -69,3 +69,37 @@ Since Warp is undocumented, we will:
    - STT (Prisma primary, Warp stub)
    - TTS (Timbre primary, Warp stub)
    - Date/time resolution (custom primary, Evon stub)
+
+## Local verification — November 1
+
+### Verified locally
+
+- `agent.yaml` loads as UTF-8 on Windows (the Malayalam greeting previously crashed cp1252).
+- Malformed `agent.yaml` sections raise a short configuration error, not a `KeyError`.
+- Malayalam date/time resolution for നാളെ, ഇന്ന്, മറ്റന്നാൾ with time expressions
+  (10 മണി, 10:30, ഒന്നര, രാത്രി, ഉച്ചയ്ക്ക്), pinned to `Asia/Kolkata`.
+- PostgreSQL 16 schema created from SQLAlchemy models: `calls`, `call_events`,
+  `calendars`, `bookings`.
+- Synthetic seed data is idempotent across restarts (2 calls, 2 bookings, 1 calendar).
+- A partial unique index prevents two confirmed bookings for the same calendar slot
+  while allowing a cancelled slot to be rebooked.
+- Admin JSON endpoints return masked phone numbers only.
+- `/health` returns 503 in about 3 seconds when PostgreSQL is stopped, and recovers
+  automatically when it returns.
+- `docker compose up` starts PostgreSQL and the API as one healthy unit.
+
+### Still unverified — needs a live Gnani API key
+
+No Gnani credentials were available in the development environment on November 1, so
+the following are assumptions in the adapter code and must be confirmed with a real
+request before they are described as working:
+
+- `POST /stt/v3` request shape: multipart field name (`audio` in the code) and response
+  keys (`transcript`, `confidence`, `duration_ms`).
+- `POST /api/v1/tts/inference` body beyond `text`, `model`, `voice`, `language`
+  (`speed`, `audio_config`).
+- Whether `X-API-Key-ID` alone is sufficient, or a second secret header is required.
+- Malayalam voice availability for `timbre-v2.5`.
+
+The local simulation therefore remains the guaranteed demo path (Path B).
+

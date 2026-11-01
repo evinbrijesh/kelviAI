@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from app.config import load_config, validate_config
+from app.config import ConfigError, load_config, validate_config
 
 
 def test_load_config_valid(tmp_path: Path) -> None:
@@ -84,3 +84,61 @@ database:
     is_valid, msg = validate_config(config_file)
     assert not is_valid
     assert msg == "GNAI_API_KEY_ID is not configured"
+
+
+MINIMAL_CONFIG = """
+agent:
+  name: "test-agent"
+  language: "malayalam"
+  greeting: "നമസ്കാരം"
+  persona: "Assistant"
+  rules: []
+model:
+  provider: "gnani"
+  stt:
+    model: "prisma-v3.0"
+    language: "ml-IN"
+  tts:
+    model: "timbre-v2.5"
+    voice: "default"
+  date_time_resolver: "custom"
+tools: []
+database:
+  url: "sqlite:///test.db"
+"""
+
+
+def _write(tmp_path: Path, content: str) -> Path:
+    config_file = tmp_path / "agent.yaml"
+    config_file.write_text(content, encoding="utf-8")
+    return config_file
+
+
+def test_missing_section_raises_config_error(tmp_path: Path) -> None:
+    config_file = _write(tmp_path, MINIMAL_CONFIG)
+
+    with pytest.raises(ConfigError, match="gnani"):
+        load_config(config_file)
+
+
+def test_non_string_api_key_raises_config_error(tmp_path: Path) -> None:
+    gnani_section = '\ngnani:\n  api_key_id: null\n  base_url: "x"\n'
+    config_file = _write(tmp_path, MINIMAL_CONFIG + gnani_section)
+
+    with pytest.raises(ConfigError, match="api_key_id"):
+        load_config(config_file)
+
+
+def test_non_mapping_yaml_raises_config_error(tmp_path: Path) -> None:
+    config_file = _write(tmp_path, "- just\n- a list\n")
+
+    with pytest.raises(ConfigError):
+        load_config(config_file)
+
+
+def test_validate_config_reports_invalid_without_leaking_details(tmp_path: Path) -> None:
+    config_file = _write(tmp_path, MINIMAL_CONFIG)
+
+    is_valid, msg = validate_config(config_file)
+    assert not is_valid
+    assert msg == "Invalid configuration"
