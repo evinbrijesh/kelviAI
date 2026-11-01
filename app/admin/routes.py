@@ -138,7 +138,14 @@ def admin_index() -> AdminIndex:
     return AdminIndex(
         environment=ENVIRONMENT,
         notice="VaaniKit demo admin API. Synthetic data only; not production secure.",
-        endpoints=["/admin/ui", "/admin/calls", "/admin/bookings", "/admin/status", "/admin/tools"],
+        endpoints=[
+            "/admin/ui",
+            "/admin/calls",
+            "/admin/calls/{id}",
+            "/admin/bookings",
+            "/admin/status",
+            "/admin/tools",
+        ],
     )
 
 

@@ -2,6 +2,8 @@
 
 SCENARIO ?= appointment_malayalam
 SCENARIO_MODULE = $(subst -,_,$(SCENARIO))
+HOST ?= 0.0.0.0
+PORT ?= 8000
 
 ifeq ($(OS),Windows_NT)
 VENV_PYTHON := .venv/Scripts/python.exe
@@ -11,7 +13,7 @@ endif
 PYTHON ?= $(if $(wildcard $(VENV_PYTHON)),$(VENV_PYTHON),python)
 
 dev: db-up
-	$(PYTHON) -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+	$(PYTHON) -m uvicorn app.main:app --reload --host $(HOST) --port $(PORT)
 
 install:
 	$(PYTHON) -m pip install -e ".[dev]"

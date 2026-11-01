@@ -17,8 +17,16 @@ cp .env.example .env
 # 3. Start PostgreSQL and the API (make dev runs docker compose first)
 make dev
 
-# 4. Check health
+# 4. Open the dashboard or check health
+#    http://localhost:8000/admin/ui
 curl http://localhost:8000/health
+```
+
+If port 8000 is already in use, pick another API port and use it in the URLs above:
+
+```bash
+make dev PORT=8032
+# http://localhost:8032/admin/ui
 ```
 
 The default `DATABASE_URL` points at `localhost:5432`. If port 5432 is already taken,
@@ -80,7 +88,8 @@ requests are rejected by an overlap check plus a partial unique index in the dat
 ## Admin API and dashboard
 
 The admin surface is a dependency-free dashboard at `http://localhost:8000/admin/ui`
-(the root URL redirects there) plus a JSON API. Both are explicitly non-production,
+(the root URL redirects there) plus a JSON API. Replace the port if you started the
+API with `PORT=...`. Both are explicitly non-production,
 use synthetic data only, and mask phone numbers in every view.
 
 The dashboard lists calls and bookings, and opens a call detail with the resolved

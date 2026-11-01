@@ -96,11 +96,15 @@ class CustomDateTimeResolver(DateTimeResolver):
     def _extract_time(self, text: str, text_lower: str) -> tuple[time | None, str]:
         is_pm = False
         is_morning = False
-        if "രാവിലെ" in text or "am" in text_lower or "morning" in text_lower:
+        if (
+            "രാവിലെ" in text
+            or re.search(r"(?<![a-z])am(?![a-z])", text_lower)
+            or "morning" in text_lower
+        ):
             is_morning = True
         elif (
             any(k in text for k in ["ഉച്ചയ്ക്ക്", "വൈകുന്നേരം", "വൈകിട്ട്", "രാത്രി"])
-            or "pm" in text_lower
+            or re.search(r"(?<![a-z])pm(?![a-z])", text_lower)
             or "afternoon" in text_lower
             or "evening" in text_lower
         ):
@@ -145,7 +149,7 @@ class CustomDateTimeResolver(DateTimeResolver):
                     h += 12
                 return time(h, 0), f"Detected time '{mani_match.group(0)}'"
 
-        ampm_match = re.search(r"\b(\d{1,2})\s*(am|pm)\b", text_lower)
+        ampm_match = re.search(r"(?<!\d)(\d{1,2})\s*(am|pm)\b", text_lower)
         if ampm_match:
             h = int(ampm_match.group(1))
             ampm = ampm_match.group(2)
