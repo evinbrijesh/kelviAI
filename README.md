@@ -59,11 +59,22 @@ and two demo bookings the first time it runs against an empty database.
 ## Run the simulation
 
 ```bash
+make db-up
 make simulate SCENARIO=appointment-malayalam
 ```
 
-The scenario loads `agent.yaml`, builds the adapter registry, resolves a Malayalam
-date/time utterance, and reports the resolved slot. It does not require PostgreSQL.
+The scenario writes to the configured database:
+
+1. Resolves "നാളെ രാവിലെ 10 മണിക്ക് അപ്പോയിന്റ്മെന്റ് വേണം" into a date and time.
+2. Checks availability, moving to the next open day when the clinic is closed that day.
+3. Offers the nearest open slot when the requested one is already taken.
+4. Books the slot transactionally and records every caller turn, agent turn, and tool
+   call in `call_events`.
+5. Prints a summary with the booking reference and the number of recorded events.
+
+Each run creates one new call and books the next open slot, so the simulation stays
+usable on a database that already contains demo bookings. Duplicate and overlapping
+requests are rejected by an overlap check plus a partial unique index in the database.
 
 ## Admin API
 
