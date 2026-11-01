@@ -1,4 +1,7 @@
+from typing import Any
+
 import httpx
+
 from app.config import GnaniConfig, STTConfig, TTSConfig
 from app.llm.interfaces import STTAdapter, STTMode, STTResult, TTSAdapter, TTSMode, TTSResult
 
@@ -14,31 +17,31 @@ class GnaniSTTAdapter(STTAdapter):
         )
 
     async def transcribe(
-        self, audio: bytes, mode: STTMode = STTMode.REST, **kwargs
+        self, audio: bytes, mode: STTMode = STTMode.REST, **kwargs: Any
     ) -> STTResult:
         if mode == STTMode.REST:
             return await self._transcribe_rest(audio, **kwargs)
         raise NotImplementedError(f"STT mode {mode} not yet implemented")
 
-    async def _transcribe_rest(self, audio: bytes, **kwargs) -> STTResult:
+    async def _transcribe_rest(self, audio: bytes, **kwargs: Any) -> STTResult:
         files = {"audio": ("audio.wav", audio, "audio/wav")}
         data = {
             "model": self.stt_config.model,
             "language": self.stt_config.language,
         }
 
-        response = await self.client.post("/stt/v1/transcribe", files=files, data=data)
+        response = await self.client.post("/stt/v3", files=files, data=data)
         response.raise_for_status()
 
         result = response.json()
         return STTResult(
             text=result.get("transcript", ""),
             language=result.get("language", self.stt_config.language),
-            confidence=result.get("confidence", 0.0),
-            duration_ms=result.get("duration_ms", 0),
+            confidence=float(result.get("confidence", 0.0)),
+            duration_ms=int(result.get("duration_ms", 0)),
         )
 
-    async def close(self):
+    async def close(self) -> None:
         await self.client.aclose()
 
 
@@ -53,13 +56,13 @@ class GnaniTTSAdapter(TTSAdapter):
         )
 
     async def synthesize(
-        self, text: str, mode: TTSMode = TTSMode.REST, **kwargs
+        self, text: str, mode: TTSMode = TTSMode.REST, **kwargs: Any
     ) -> TTSResult:
         if mode == TTSMode.REST:
             return await self._synthesize_rest(text, **kwargs)
         raise NotImplementedError(f"TTS mode {mode} not yet implemented")
 
-    async def _synthesize_rest(self, text: str, **kwargs) -> TTSResult:
+    async def _synthesize_rest(self, text: str, **kwargs: Any) -> TTSResult:
         data = {
             "text": text,
             "model": self.tts_config.model,
@@ -67,7 +70,7 @@ class GnaniTTSAdapter(TTSAdapter):
             "language": kwargs.get("language", "ml-IN"),
         }
 
-        response = await self.client.post("/tts/v1/synthesize", json=data)
+        response = await self.client.post("/api/v1/tts/inference", json=data)
         response.raise_for_status()
 
         return TTSResult(
@@ -76,5 +79,5 @@ class GnaniTTSAdapter(TTSAdapter):
             sample_rate=16000,
         )
 
-    async def close(self):
+    async def close(self) -> None:
         await self.client.aclose()

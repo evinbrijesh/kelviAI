@@ -23,6 +23,7 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "ruff>=0.7.0",
     "mypy>=1.12.0",
+    "types-PyYAML>=6.0.12",
 ]
 
 [build-system]
@@ -35,6 +36,16 @@ packages = ["app"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+exclude = [
+    ".agents",
+    ".claude",
+    ".codex",
+    ".cursor",
+    ".hermes",
+    ".opencode",
+    ".pi",
+    "admin",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
@@ -45,3 +56,6 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"

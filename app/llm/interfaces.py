@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, time
 from enum import Enum
+from typing import Any
 
 
 class STTMode(Enum):
@@ -33,8 +34,8 @@ class TTSResult:
 
 @dataclass
 class DateTimeResolution:
-    date: datetime | None
-    time: datetime | None
+    date: date | None
+    time: time | None
     timezone: str
     confidence: float
     explanation: str
@@ -43,7 +44,7 @@ class DateTimeResolution:
 class STTAdapter(ABC):
     @abstractmethod
     async def transcribe(
-        self, audio: bytes, mode: STTMode = STTMode.REST, **kwargs
+        self, audio: bytes, mode: STTMode = STTMode.REST, **kwargs: Any
     ) -> STTResult:
         pass
 
@@ -51,12 +52,14 @@ class STTAdapter(ABC):
 class TTSAdapter(ABC):
     @abstractmethod
     async def synthesize(
-        self, text: str, mode: TTSMode = TTSMode.REST, **kwargs
+        self, text: str, mode: TTSMode = TTSMode.REST, **kwargs: Any
     ) -> TTSResult:
         pass
 
 
 class DateTimeResolver(ABC):
     @abstractmethod
-    async def resolve(self, text: str, language: str, context: dict | None = None) -> DateTimeResolution:
+    async def resolve(
+        self, text: str, language: str, context: dict[str, Any] | None = None
+    ) -> DateTimeResolution:
         pass

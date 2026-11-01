@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vaanikit_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vaanikit
+      POSTGRES_PASSWORD: vaanikit
+      POSTGRES_DB: vaanikit
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vaanikit -d vaanikit"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: vaanikit_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://vaanikit:vaanikit@db:5432/vaanikit
+      - GNAI_API_KEY_ID=${GNAI_API_KEY_ID:-}
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

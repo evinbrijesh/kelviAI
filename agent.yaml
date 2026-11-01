@@ -23,15 +23,52 @@ tools:
   - name: "check_availability"
     description: "Check available appointment slots"
     enabled: true
+    parameters:
+      type: "object"
+      properties:
+        date:
+          type: "string"
+          description: "Target date in YYYY-MM-DD format"
+        time_slot:
+          type: "string"
+          description: "Optional preferred time slot (e.g. morning, afternoon, evening)"
+      required: ["date"]
   - name: "book_slot"
     description: "Book an appointment slot"
     enabled: true
+    parameters:
+      type: "object"
+      properties:
+        caller_name:
+          type: "string"
+          description: "Name of the caller"
+        date:
+          type: "string"
+          description: "Date of appointment in YYYY-MM-DD format"
+        time:
+          type: "string"
+          description: "Time of appointment in HH:MM format"
+      required: ["caller_name", "date", "time"]
   - name: "cancel_booking"
     description: "Cancel an existing booking"
     enabled: true
+    parameters:
+      type: "object"
+      properties:
+        booking_id:
+          type: "string"
+          description: "Unique booking reference ID"
+      required: ["booking_id"]
   - name: "transfer_to_human"
     description: "Transfer call to human agent"
     enabled: true
+    parameters:
+      type: "object"
+      properties:
+        reason:
+          type: "string"
+          description: "Reason for transferring to a human operator"
+      required: ["reason"]
 
 gnani:
   api_key_id: "${GNAI_API_KEY_ID}"

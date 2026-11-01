@@ -218,3 +218,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local agent configurations and skills
+.agents/
+.claude/
+.codex/
+.cursor/
+.hermes/
+.opencode/
+.pi/

@@ -3,19 +3,22 @@
 **Last updated:** November 1, 2026
 **Investigated by:** Evin
 
-## Available APIs (Verified)
+## Available APIs (Documented)
 
 ### Speech-to-Text - Gnani Prisma
 - **Prisma v2.5** (default) - Transcription in specified language
 - **Prisma v3.0** - Multilingual with automatic language detection
 - **Modes**: REST (up to 30s), Realtime (WebSocket), Batch (long files)
 - **Base URL**: `https://api.vachana.ai`
+- **Endpoint**: `/stt/v3`
 - **Auth**: `X-API-Key-ID` header
 - **Documentation**: https://docs.gnani.ai/api/STT/overview.md
 
 ### Text-to-Speech - Gnani Timbre
 - **Timbre v2.5** (recommended, v2.0 deprecated)
 - **Modes**: REST, Streaming (SSE), Realtime (WebSocket)
+- **Base URL**: `https://api.vachana.ai`
+- **Endpoint**: `/api/v1/tts/inference`
 - **Voice catalog** available for selection
 - **Documentation**: https://docs.gnani.ai/api/TTS/tts-inference.md
 
