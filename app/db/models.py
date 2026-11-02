@@ -37,6 +37,7 @@ class BookingStatus(StrEnum):
 
 class EventType(StrEnum):
     CALL_STARTED = "call_started"
+    DATE_RESOLVED = "date_resolved"
     USER_TURN = "user_turn"
     AGENT_TURN = "agent_turn"
     TOOL_CALL = "tool_call"

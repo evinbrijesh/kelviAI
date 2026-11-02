@@ -62,6 +62,30 @@ async def test_resolve_english_fallback() -> None:
 
 
 @pytest.mark.asyncio
+async def test_resolve_compact_am_pm() -> None:
+    resolver = CustomDateTimeResolver()
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+
+    res = await resolver.resolve("tomorrow at 10am", language="english")
+    assert res.date == (now + timedelta(days=1)).date()
+    assert res.time == time(10, 0)
+
+    res = await resolver.resolve("tomorrow at 3pm", language="english")
+    assert res.time == time(15, 0)
+
+
+@pytest.mark.asyncio
+async def test_am_inside_a_word_does_not_mean_morning() -> None:
+    resolver = CustomDateTimeResolver()
+
+    res = await resolver.resolve("namaskaram, 5 മണി", language="malayalam")
+    assert res.time == time(17, 0)
+
+    res = await resolver.resolve("example 6 മണി", language="malayalam")
+    assert res.time == time(18, 0)
+
+
+@pytest.mark.asyncio
 async def test_resolve_unrecognized() -> None:
     resolver = CustomDateTimeResolver()
 

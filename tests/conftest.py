@@ -1,10 +1,11 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from app.db.session import Database
 from app.main import app
 
 TEST_AGENT_CONFIG = """
@@ -54,6 +55,14 @@ def agent_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("AGENT_CONFIG_PATH", str(config_path))
     monkeypatch.setenv("SEED_DEMO_DATA", "true")
     return config_path
+
+
+@pytest.fixture
+def database(tmp_path: Path) -> Iterator[Database]:
+    db = Database(f"sqlite:///{(tmp_path / 'unit.db').as_posix()}")
+    db.create_schema()
+    yield db
+    db.dispose()
 
 
 @pytest_asyncio.fixture

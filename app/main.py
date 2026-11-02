@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response, status
+from fastapi.responses import RedirectResponse
 
 from app.admin.routes import router as admin_router
 from app.config import AppConfig, Settings, load_config
@@ -55,6 +56,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="VaaniKit", version="0.1.0", lifespan=lifespan)
 app.include_router(admin_router)
+
+
+@app.get("/", include_in_schema=False)
+def index() -> RedirectResponse:
+    return RedirectResponse(url="/admin/ui")
 
 
 @app.get("/health")

@@ -1,3 +1,4 @@
+from app.tools.booking import BookingTools, build_tool_registry
 from app.tools.registry import (
     ToolArgumentError,
     ToolError,
@@ -8,6 +9,8 @@ from app.tools.registry import (
 )
 
 __all__ = [
+    "BookingTools",
+    "build_tool_registry",
     "ToolArgumentError",
     "ToolError",
     "ToolRegistry",

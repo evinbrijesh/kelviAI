@@ -17,8 +17,16 @@ cp .env.example .env
 # 3. Start PostgreSQL and the API (make dev runs docker compose first)
 make dev
 
-# 4. Check health
+# 4. Open the dashboard or check health
+#    http://localhost:8000/admin/ui
 curl http://localhost:8000/health
+```
+
+If port 8000 is already in use, pick another API port and use it in the URLs above:
+
+```bash
+make dev PORT=8032
+# http://localhost:8032/admin/ui
 ```
 
 The default `DATABASE_URL` points at `localhost:5432`. If port 5432 is already taken,
@@ -53,28 +61,49 @@ docker compose up -d --wait db
 .venv/Scripts/python.exe -m app.scenarios.appointment_malayalam
 ```
 
-The app creates its tables on startup and seeds a synthetic clinic, two demo calls,
-and two demo bookings the first time it runs against an empty database.
+The app creates its tables on startup and seeds a fictional clinic, four demo calls
+(booked, conflict resolved, unresolved, transferred), and two confirmed demo bookings
+the first time it runs against an empty database.
 
 ## Run the simulation
 
 ```bash
+make db-up
 make simulate SCENARIO=appointment-malayalam
 ```
 
-The scenario loads `agent.yaml`, builds the adapter registry, resolves a Malayalam
-date/time utterance, and reports the resolved slot. It does not require PostgreSQL.
+The scenario writes to the configured database:
 
-## Admin API
+1. Resolves "നാളെ രാവിലെ 10 മണിക്ക് അപ്പോയിന്റ്മെന്റ് വേണം" into a date and time.
+2. Checks availability, moving to the next open day when the clinic is closed that day.
+3. Offers the nearest open slot when the requested one is already taken.
+4. Books the slot transactionally and records every caller turn, agent turn, and tool
+   call in `call_events`.
+5. Prints a summary with the booking reference and the number of recorded events.
 
-The admin surface is JSON only and explicitly non-production. Phone numbers are masked
-in every response.
+Each run creates one new call and books the next open slot, so the simulation stays
+usable on a database that already contains demo bookings. Duplicate and overlapping
+requests are rejected by an overlap check plus a partial unique index in the database.
+
+## Admin API and dashboard
+
+The admin surface is a dependency-free dashboard at `http://localhost:8000/admin/ui`
+(the root URL redirects there) plus a JSON API. Replace the port if you started the
+API with `PORT=...`. Both are explicitly non-production,
+use synthetic data only, and mask phone numbers in every view.
+
+The dashboard lists calls and bookings, and opens a call detail with the resolved
+date/time, outcome, summary, errors, linked bookings, and a chronological event
+timeline including tool arguments, tool results, and latency. Call details are
+hash-addressable (`#call-N`), and empty, loading, and error states are built in.
 
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /admin` | Index and non-production notice |
-| `GET /admin/calls` | Recent calls |
-| `GET /admin/bookings` | Upcoming bookings |
+| `GET /admin/ui` | Browser dashboard |
+| `GET /admin/calls` | Recent calls with masked caller numbers |
+| `GET /admin/calls/{id}` | Call detail: resolution, events, bookings, errors |
+| `GET /admin/bookings` | Upcoming bookings with clinic and linked call |
 | `GET /admin/status` | Row counts and environment label |
 | `GET /admin/tools` | Tools declared in `agent.yaml` with their argument schemas |
 
