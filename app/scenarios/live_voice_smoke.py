@@ -11,9 +11,13 @@ logger = logging.getLogger("live_voice_smoke")
 
 
 async def run_live_smoke() -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
     config = load_config()
 
-    if not config.gnani.api_key_id or "your-gnani" in config.gnani.api_key_id:
+    if not config.gnani.api_key_id or config.gnani.api_key_id.startswith("your"):
         logger.error("GNAI_API_KEY_ID is not configured in .env. Aborting live smoke test.")
         return 1
 

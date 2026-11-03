@@ -296,6 +296,49 @@ async def test_agent_session_no_availability_ends_call(
 
 
 @pytest.mark.asyncio
+async def test_agent_session_all_slots_taken_ends_call(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    target_day = next_working_day()
+
+    with database.session() as session:
+        for hour in range(9, 17):
+            for minute in (0, 30):
+                slot_start = datetime.combine(
+                    target_day, datetime.strptime(f"{hour:02d}:{minute:02d}", "%H:%M").time(),
+                    tzinfo=TZ,
+                ).astimezone(UTC)
+                session.add(
+                    Booking(
+                        calendar_id=clinic_calendar.id,
+                        patient_name="Synthetic Blocking Patient",
+                        caller_phone="+919000000098",
+                        slot_start=slot_start,
+                        slot_end=slot_start + timedelta(minutes=30),
+                        status=str(BookingStatus.CONFIRMED),
+                    )
+                )
+        session.flush()
+
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=CustomDateTimeResolver(),
+            caller_phone="+919000000007",
+        )
+        agent.start()
+
+        reply = await agent.process_turn(f"{target_day.isoformat()} 10:00-ന് വേണം")
+
+        assert "All appointments are taken" in reply
+        assert agent.state == AgentState.FAILED
+        assert agent.call.status == "failed"
+
+
+@pytest.mark.asyncio
 async def test_agent_session_transfer_sets_transferred_status(
     database: Database, agent_config: Any
 ) -> None:
