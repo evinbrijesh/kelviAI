@@ -16,7 +16,7 @@ model:
     language: "ml-IN"
   tts:
     model: "timbre-v2.5"
-    voice: "default"
+    voice: "Reshma"
   date_time_resolver: "custom"
 
 tools:

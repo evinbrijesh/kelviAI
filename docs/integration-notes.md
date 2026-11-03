@@ -88,18 +88,24 @@ Since Warp is undocumented, we will:
   automatically when it returns.
 - `docker compose up` starts PostgreSQL and the API as one healthy unit.
 
-### Still unverified — needs a live Gnani API key
+### Verified live against the Gnani API (November 3, 2026)
 
-No Gnani credentials were available in the development environment on November 1, so
-the following are assumptions in the adapter code and must be confirmed with a real
-request before they are described as working:
+A Gnani API key was configured and both speech endpoints were exercised with
+synthetic TTS audio. Confirmed behavior:
 
-- `POST /stt/v3` request shape: multipart field name (`audio` in the code) and response
-  keys (`transcript`, `confidence`, `duration_ms`).
-- `POST /api/v1/tts/inference` body beyond `text`, `model`, `voice`, `language`
-  (`speed`, `audio_config`).
-- Whether `X-API-Key-ID` alone is sufficient, or a second secret header is required.
-- Malayalam voice availability for `timbre-v2.5`.
+- `X-API-Key-ID` alone authenticates requests; the API returns `401` without it.
+- `POST /stt/v3` expects multipart fields `audio_file`, `model`, and
+  `language_code` (`ml-IN` accepted; `indic-auto` also documented). The response
+  contains `transcript`, `detected_language_code`, and `success`; it does not return
+  `confidence` or `duration_ms`, so the adapter leaves those at zero.
+- `POST /api/v1/tts/inference` requires `text`, `model`, `voice`, `speed`, `language`,
+  and `audio_config` (`sample_rate` 48000, `num_channels` 1, `sample_width` 2,
+  `encoding` `linear_pcm`, `container` `wav`). It returns `audio/wav` bytes.
+- Timbre v2.5 Malayalam voices are **Reshma** and **Riyaan**. The placeholder voice
+  `default` is rejected with `400`; `agent.yaml` now uses `Reshma`.
+- A TTS → STT round trip with `timbre-v2.5` and `prisma-v3.0` detected `ml-IN` and
+  transcribed the Malayalam greeting correctly.
 
-The local simulation therefore remains the guaranteed demo path (Path B).
+No audio was written to disk or committed; only in-memory synthetic speech was used.
+The local simulation remains the guaranteed demo path (Path B).
 

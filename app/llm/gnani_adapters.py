@@ -24,10 +24,10 @@ class GnaniSTTAdapter(STTAdapter):
         raise NotImplementedError(f"STT mode {mode} not yet implemented")
 
     async def _transcribe_rest(self, audio: bytes, **kwargs: Any) -> STTResult:
-        files = {"audio": ("audio.wav", audio, "audio/wav")}
+        files = {"audio_file": ("audio.wav", audio, "audio/wav")}
         data = {
             "model": self.stt_config.model,
-            "language": self.stt_config.language,
+            "language_code": kwargs.get("language", self.stt_config.language),
         }
 
         response = await self.client.post("/stt/v3", files=files, data=data)
@@ -35,10 +35,12 @@ class GnaniSTTAdapter(STTAdapter):
 
         result = response.json()
         return STTResult(
-            text=result.get("transcript", ""),
-            language=result.get("language", self.stt_config.language),
-            confidence=float(result.get("confidence", 0.0)),
-            duration_ms=int(result.get("duration_ms", 0)),
+            text=str(result.get("transcript", "")),
+            language=str(
+                result.get("detected_language_code", self.stt_config.language)
+            ),
+            confidence=float(result.get("confidence") or 0.0),
+            duration_ms=int(result.get("duration_ms") or 0),
         )
 
     async def close(self) -> None:
@@ -68,6 +70,14 @@ class GnaniTTSAdapter(TTSAdapter):
             "model": self.tts_config.model,
             "voice": self.tts_config.voice,
             "language": kwargs.get("language", "ml-IN"),
+            "speed": kwargs.get("speed", 1.0),
+            "audio_config": {
+                "sample_rate": 48000,
+                "num_channels": 1,
+                "sample_width": 2,
+                "encoding": "linear_pcm",
+                "container": "wav",
+            },
         }
 
         response = await self.client.post("/api/v1/tts/inference", json=data)
@@ -76,7 +86,7 @@ class GnaniTTSAdapter(TTSAdapter):
         return TTSResult(
             audio=response.content,
             format="wav",
-            sample_rate=16000,
+            sample_rate=48000,
         )
 
     async def close(self) -> None:
