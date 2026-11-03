@@ -124,6 +124,27 @@ by design and the API never returns audio.
 | `GET /admin/status` | Row counts, phone-masking, and recording status |
 | `GET /admin/tools` | Tools declared in `agent.yaml` with their argument schemas |
 
+## Voice API and live speech
+
+VaaniKit includes a live voice bridge connecting Gnani STT (`prisma-v3.0`), the `AgentSession` state machine, and Gnani TTS (`timbre-v2.5` voice `Reshma`).
+
+Verify the live Gnani speech pipeline end-to-end:
+
+```bash
+make voice-check
+```
+
+The Voice API provides REST and telephony webhook endpoints:
+
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/api/voice/status` | GET | Inspect STT/TTS adapter status, voice model, and active calls |
+| `/api/voice/session/start` | POST | Start a voice session and return the synthesized greeting audio |
+| `/api/voice/session/{call_sid}/turn` | POST | Submit caller audio (base64 JSON or binary WAV/PCM) and receive synthesized agent audio |
+| `/api/voice/session/{call_sid}/audio` | GET | Retrieve the latest synthesized agent audio for playback |
+| `/api/voice/session/{call_sid}/hangup` | POST | Gracefully terminate an ongoing voice session |
+| `/api/voice/webhook/twilio` | POST | Telephony webhook receiving calls and returning standard TwiML |
+
 ## Deploy with Docker
 
 `docker compose up` builds and runs the full stack: `app` (FastAPI, API, and

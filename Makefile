@@ -31,6 +31,9 @@ simulate:
 rehearse:
 	$(PYTHON) -m app.scenarios.rehearsal
 
+voice-check:
+	$(PYTHON) -m app.scenarios.live_voice_smoke
+
 db-up:
 	docker compose up -d --wait db
 

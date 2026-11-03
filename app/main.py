@@ -6,6 +6,7 @@ from fastapi import FastAPI, Response, status
 from fastapi.responses import RedirectResponse
 
 from app.admin.routes import router as admin_router
+from app.api.voice import router as voice_router
 from app.config import AppConfig, Settings, load_config
 from app.db.seed import seed_demo_data
 from app.db.session import Database
@@ -56,6 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="VaaniKit", version="0.1.0", lifespan=lifespan)
 app.include_router(admin_router)
+app.include_router(voice_router)
 
 
 @app.get("/", include_in_schema=False)
