@@ -117,6 +117,15 @@ class AgentSession:
 
         return await self._transfer("unsupported_state")
 
+    def hangup(self, reason: str = "Caller hung up before completing the request.") -> str:
+        """End an in-progress call when the caller disconnects."""
+        if self.state in (AgentState.COMPLETED, AgentState.FAILED, AgentState.TRANSFERRED):
+            return "This call has already concluded."
+        assert self.call_log is not None
+        self._finish(CallStatus.FAILED, reason, "abandoned")
+        self.state = AgentState.FAILED
+        return reason
+
     async def _handle_slot_request(self, user_utterance: str) -> str:
         assert self.call_log is not None
         resolution = await self.resolver.resolve(
@@ -188,6 +197,7 @@ class AgentSession:
             )
             self.call_log.agent_turn(message)
             self._finish(CallStatus.FAILED, message, "no_availability")
+            self.state = AgentState.FAILED
             return message
 
         slots = [str(s) for s in availability.get("available") or []]
@@ -195,6 +205,7 @@ class AgentSession:
             message = f"All appointments are taken on {day.isoformat()}."
             self.call_log.agent_turn(message)
             self._finish(CallStatus.FAILED, message, "no_availability")
+            self.state = AgentState.FAILED
             return message
 
         chosen = self._nearest_slot(slots, self.requested_time)
@@ -279,6 +290,7 @@ class AgentSession:
             message = f"The booking could not be confirmed ({booking.get('status')})."
             self.call_log.agent_turn(message)
             self._finish(CallStatus.FAILED, message, "booking_failed")
+            self.state = AgentState.FAILED
             return message
 
         self.booking_id = str(booking.get("booking_id"))
@@ -301,7 +313,7 @@ class AgentSession:
             await self._safe_invoke_tool("transfer_to_human", {"reason": reason})
         message = "Transferring to a human operator."
         self.call_log.agent_turn(message)
-        self._finish(CallStatus.COMPLETED, message, "transferred")
+        self._finish(CallStatus.TRANSFERRED, message, "transferred")
         self.state = AgentState.TRANSFERRED
         return message
 

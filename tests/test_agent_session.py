@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -112,6 +112,55 @@ async def test_agent_session_multi_turn_booking(
 
 
 @pytest.mark.asyncio
+async def test_agent_session_booking_conflict_ends_call_as_failed(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    resolver = CustomDateTimeResolver()
+
+    target_day = next_working_day()
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000005",
+        )
+        agent.start()
+
+        await agent.process_turn(f"{target_day.isoformat()} 10:00-ന് വേണം")
+        assert agent.state == AgentState.AWAITING_NAME
+
+        await agent.process_turn("എന്റെ പേര് മീര കൃഷ്ണൻ")
+        assert agent.state == AgentState.AWAITING_CONFIRMATION
+
+        calendar = session.scalar(select(Calendar))
+        slot_start = datetime.combine(
+            target_day, datetime.strptime("10:00", "%H:%M").time(), tzinfo=TZ
+        ).astimezone(UTC)
+        session.add(
+            Booking(
+                calendar_id=calendar.id,
+                patient_name="Blocking Patient",
+                caller_phone="+919000000099",
+                slot_start=slot_start,
+                slot_end=slot_start + timedelta(minutes=30),
+                status=str(BookingStatus.CONFIRMED),
+            )
+        )
+        session.flush()
+
+        reply = await agent.process_turn("അതെ, ബുക്ക് ചെയ്യാം")
+
+        assert "could not be confirmed" in reply
+        assert agent.state == AgentState.FAILED
+        assert agent.call.status == "failed"
+
+
+@pytest.mark.asyncio
 async def test_agent_session_clarification_on_ambiguous_turn(
     database: Database, agent_config: Any, clinic_calendar: Calendar
 ) -> None:
@@ -205,6 +254,100 @@ async def test_agent_session_fails_after_max_clarifications(
         await agent.process_turn("gibberish 2")
         assert agent.state == AgentState.FAILED
         assert agent.call.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_agent_session_no_availability_ends_call(
+    database: Database, agent_config: Any
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    resolver = CustomDateTimeResolver()
+
+    with database.session() as session:
+        session.add(
+            Calendar(
+                name="Closed Test Clinic",
+                timezone="Asia/Kolkata",
+                slot_minutes=30,
+                open_time=datetime.strptime("09:00", "%H:%M").time(),
+                close_time=datetime.strptime("17:00", "%H:%M").time(),
+                working_days="",
+                is_active=True,
+            )
+        )
+        session.flush()
+
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000005",
+        )
+        agent.start()
+
+        reply = await agent.process_turn(f"{next_working_day().isoformat()} 10:00-ന് വേണം")
+
+        assert "open clinic day" in reply
+        assert agent.state == AgentState.FAILED
+        assert agent.call.status == "failed"
+        assert await agent.process_turn("ഹലോ") == "This call has already concluded."
+
+
+@pytest.mark.asyncio
+async def test_agent_session_transfer_sets_transferred_status(
+    database: Database, agent_config: Any
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=CustomDateTimeResolver(),
+            caller_phone="+919000000006",
+        )
+        agent.start()
+
+        await agent._transfer("caller asked for insurance details")
+
+        assert agent.state == AgentState.TRANSFERRED
+        assert agent.call.status == "transferred"
+        ended = agent.call.events[-1]
+        assert ended.event_type == "call_ended"
+        assert ended.payload["outcome"] == "transferred"
+
+
+@pytest.mark.asyncio
+async def test_agent_session_hangup_ends_call_as_abandoned(
+    database: Database, agent_config: Any
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    resolver = CustomDateTimeResolver()
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000006",
+        )
+        agent.start()
+
+        await agent.process_turn("ഒരു അപ്പോയിന്റ്മെന്റ് വേണം")
+        assert agent.state == AgentState.CLARIFYING
+
+        agent.hangup()
+
+        assert agent.state == AgentState.FAILED
+        assert agent.call.status == "failed"
+        assert agent.call.summary == "Caller hung up before completing the request."
+        assert await agent.process_turn("ശരി") == "This call has already concluded."
 
 
 @pytest.mark.asyncio
