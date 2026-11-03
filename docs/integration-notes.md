@@ -1,6 +1,6 @@
 # Gnani Integration Notes
 
-**Last updated:** November 1, 2026
+**Last updated:** November 4, 2026
 **Investigated by:** Evin
 
 ## Available APIs (Documented)
