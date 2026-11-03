@@ -147,6 +147,17 @@ async def test_admin_ui_serves_dashboard(client: AsyncClient) -> None:
     assert response.headers["content-type"].startswith("text/html")
     assert "VaaniKit" in response.text
     assert "non-production" in response.text
+    assert "data-asciify-background" in response.text
+    assert "/admin/static/asciify.bundle.js" in response.text
+    assert "family=Redaction+50" in response.text
+
+
+@pytest.mark.asyncio
+async def test_admin_background_bundle_is_served(client: AsyncClient) -> None:
+    response = await client.get("/admin/static/asciify.bundle.js")
+    assert response.status_code == 200
+    assert "javascript" in response.headers["content-type"]
+    assert "swell" in response.text
 
 
 @pytest.mark.asyncio

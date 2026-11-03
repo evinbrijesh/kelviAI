@@ -4,7 +4,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response, status
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
+from app.admin.routes import STATIC_DIR
 from app.admin.routes import router as admin_router
 from app.api.voice import router as voice_router
 from app.config import AppConfig, Settings, load_config
@@ -58,6 +60,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="VaaniKit", version="0.1.0", lifespan=lifespan)
 app.include_router(admin_router)
 app.include_router(voice_router)
+app.mount("/admin/static", StaticFiles(directory=STATIC_DIR), name="admin-static")
 
 
 @app.get("/", include_in_schema=False)

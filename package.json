@@ -1,0 +1,15 @@
+{
+  "name": "vaanikit-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:admin": "esbuild app/admin/frontend/asciify-background.js --bundle --minify --format=iife --target=es2020 --outfile=app/admin/static/asciify.bundle.js"
+  },
+  "dependencies": {
+    "asciify-engine": "^4.32.8"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

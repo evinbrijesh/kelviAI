@@ -3,6 +3,7 @@
 .github
 .venv
 venv
+node_modules
 .env
 .env.*
 !.env.example

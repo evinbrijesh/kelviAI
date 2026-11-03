@@ -99,10 +99,15 @@ for the exact utterances and pronunciation checks, and
 
 ## Admin API and dashboard
 
-The admin surface is a dependency-free dashboard at `http://localhost:8000/admin/ui`
+The admin surface is a self-contained dashboard at `http://localhost:8000/admin/ui`
 (the root URL redirects there) plus a JSON API. Replace the port if you started the
 API with `PORT=...`. Both are explicitly non-production,
 use synthetic data only, and mask phone numbers in every view.
+
+The AMOLED dashboard background is the Swell preset from `asciify-engine`, bundled
+by `npm run build:admin` into `app/admin/static/asciify.bundle.js`. The built bundle
+is committed, so Node is only needed when changing
+`app/admin/frontend/asciify-background.js`.
 
 The dashboard lists calls and bookings, and opens a call detail with the resolved
 date/time, outcome, summary, errors, linked bookings, and a chronological event
@@ -118,6 +123,7 @@ by design and the API never returns audio.
 | --- | --- |
 | `GET /admin` | Index and non-production notice |
 | `GET /admin/ui` | Browser dashboard |
+| `GET /admin/static/*` | Bundled dashboard assets |
 | `GET /admin/calls` | Recent calls with masked caller numbers |
 | `GET /admin/calls/{id}` | Call detail: resolution, events, bookings, errors |
 | `GET /admin/bookings` | Upcoming bookings with clinic and linked call |

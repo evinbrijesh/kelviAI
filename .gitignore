@@ -227,3 +227,7 @@ __marimo__/
 .hermes/
 .opencode/
 .pi/
+
+# Node build tooling
+node_modules/
+npm-debug.log*
