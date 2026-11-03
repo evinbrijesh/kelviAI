@@ -143,6 +143,22 @@
 
   .ghost:hover { background: var(--chip); }
 
+  button:focus-visible, a:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .status.loading { animation: none; opacity: 0.7; }
+  }
+
+  @media (max-width: 640px) {
+    .segmented button, .ghost {
+      min-height: 44px;
+      padding: 10px 14px;
+    }
+  }
+
   .table-wrap { overflow-x: auto; }
 
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -351,7 +367,7 @@
   }
 
   function formatDateTime(value) {
-    if (!value) return "—";
+    if (!value) return "-";
     return new Date(value).toLocaleString("en-IN", {
       timeZone: "Asia/Kolkata",
       dateStyle: "medium",
@@ -437,9 +453,9 @@
         el("td", { class: "mono", text: call.caller_phone }),
         el("td", { text: call.language }),
         el("td", {}, badge(call.status, statusTone(call.status))),
-        el("td", {}, call.outcome ? badge(call.outcome, "info") : el("span", { class: "muted", text: "—" })),
-        el("td", { class: "numeric", text: call.booking_count ? String(call.booking_count) : "—" }),
-        el("td", { class: "summary", text: call.summary || "—" }),
+        el("td", {}, call.outcome ? badge(call.outcome, "info") : el("span", { class: "muted", text: "-" })),
+        el("td", { class: "numeric", text: call.booking_count ? String(call.booking_count) : "-" }),
+        el("td", { class: "summary", text: call.summary || "-" }),
         el("td", {}, el("button", { class: "link", text: "View", onclick: () => showCall(call.id) })),
       ),
     ));
@@ -473,7 +489,7 @@
         el("td", {}, badge(booking.status, booking.status === "confirmed" ? "ok" : "warn")),
         el("td", {}, booking.call_id
           ? el("button", { class: "link mono", text: booking.call_sid, onclick: () => showCall(booking.call_id) })
-          : el("span", { class: "muted", text: "—" })),
+          : el("span", { class: "muted", text: "-" })),
       ),
     ));
 
@@ -524,7 +540,7 @@
   function metaItem(label, value, mono) {
     return el("div", {},
       el("dt", { text: label }),
-      el("dd", { class: mono ? "mono" : "", text: value || "—" }),
+      el("dd", { class: mono ? "mono" : "", text: value || "-" }),
     );
   }
 
@@ -585,8 +601,8 @@
       ? el("section", { class: "card" },
           el("h3", { text: "Resolved date and time" }),
           el("dl", { class: "resolved-grid" },
-            el("div", {}, el("dt", { text: "Date" }), el("dd", { text: detail.resolved.date || "—" })),
-            el("div", {}, el("dt", { text: "Time" }), el("dd", { text: detail.resolved.time || "—" })),
+            el("div", {}, el("dt", { text: "Date" }), el("dd", { text: detail.resolved.date || "-" })),
+            el("div", {}, el("dt", { text: "Time" }), el("dd", { text: detail.resolved.time || "-" })),
             el("div", {}, el("dt", { text: "Time zone" }), el("dd", { text: detail.resolved.timezone })),
             el("div", {}, el("dt", { text: "Confidence" }), el("dd", { text: `${Math.round(detail.resolved.confidence * 100)}%` })),
           ),

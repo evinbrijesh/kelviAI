@@ -83,6 +83,14 @@ class CustomDateTimeResolver(DateTimeResolver):
     def _extract_date(
         self, text: str, text_lower: str, now: datetime
     ) -> tuple[date | None, str]:
+        iso_match = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", text)
+        if iso_match:
+            try:
+                parsed_date = date.fromisoformat(iso_match.group(1))
+                return parsed_date, f"Detected date '{iso_match.group(1)}'"
+            except ValueError:
+                pass
+
         if "മറ്റന്നാൾ" in text or "day after tomorrow" in text_lower:
             target = now + timedelta(days=2)
             return target.date(), "Detected day after tomorrow (മറ്റന്നാൾ)"
