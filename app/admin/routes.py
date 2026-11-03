@@ -25,6 +25,7 @@ from app.privacy import mask_phone
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 ENVIRONMENT = "non-production"
+RECORDINGS = "disabled"
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
@@ -214,6 +215,7 @@ def admin_status(session: SessionDep) -> AdminStatus:
         bookings=bookings,
         calendars=calendars,
         phone_masking="enabled",
+        recordings=RECORDINGS,
     )
 
 

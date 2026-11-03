@@ -1,4 +1,4 @@
-.PHONY: dev install test lint simulate clean db-up db-down db-logs
+.PHONY: dev install test lint simulate rehearse clean db-up db-down db-logs
 
 SCENARIO ?= appointment_malayalam
 SCENARIO_MODULE = $(subst -,_,$(SCENARIO))
@@ -27,6 +27,9 @@ lint:
 
 simulate:
 	$(PYTHON) -m app.scenarios.$(SCENARIO_MODULE)
+
+rehearse:
+	$(PYTHON) -m app.scenarios.rehearsal
 
 db-up:
 	docker compose up -d --wait db

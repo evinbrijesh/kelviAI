@@ -121,6 +121,7 @@ async def test_admin_status_counts(client: AsyncClient) -> None:
     assert status["bookings"] == 2
     assert status["calendars"] == 1
     assert status["phone_masking"] == "enabled"
+    assert status["recordings"] == "disabled"
     assert status["environment"] == "non-production"
 
 

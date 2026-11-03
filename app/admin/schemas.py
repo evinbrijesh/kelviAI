@@ -61,6 +61,7 @@ class AdminStatus(BaseModel):
     bookings: int
     calendars: int
     phone_masking: str
+    recordings: str
 
 
 class ConfiguredTool(BaseModel):
