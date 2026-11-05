@@ -7,10 +7,12 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from app.agent.replies import ReplyTemplates, templates_for
 from app.calls.session_log import CallSessionLog, invoke_tool, start_call
 from app.config import AppConfig
 from app.db.models import Call, CallStatus, EventType
 from app.llm.interfaces import DateTimeResolver
+from app.llm.language import detect_language, normalize_language, resolve_language
 from app.tools.booking import build_tool_registry
 from app.tools.registry import ToolError, ToolRegistry
 
@@ -53,6 +55,12 @@ class AgentSession:
         self.caller_name = caller_name
         self.max_clarifications = max_clarifications
 
+        self.language: str = resolve_language(
+            hint=config.agent.language, default=config.model.stt.language
+        )
+        self.templates: ReplyTemplates = templates_for(self.language)
+        self._language_locked = False
+
         self.state: AgentState = AgentState.IDLE
         self.clarification_count: int = 0
         self.resolved_date: date | None = None
@@ -81,7 +89,7 @@ class AgentSession:
             self.session,
             call_sid=self.call_sid,
             caller_phone=self.caller_phone,
-            language=self.config.agent.language,
+            language=self.language,
             channel=self.channel,
         )
         self.tools = build_tool_registry(
@@ -94,17 +102,19 @@ class AgentSession:
         self.state = AgentState.AWAITING_SLOT
         return greeting
 
-    async def process_turn(self, user_utterance: str) -> str:
+    async def process_turn(
+        self, user_utterance: str, language: str | None = None
+    ) -> str:
         """Process one conversational turn from the user and return the agent's reply."""
         if self.state in (AgentState.COMPLETED, AgentState.FAILED, AgentState.TRANSFERRED):
-            return "This call has already concluded."
+            return self._t("concluded")
 
         if self.call_log is None or self.tools is None:
             self.start()
             assert self.call_log is not None and self.tools is not None
 
-        language = self.config.agent.language
-        self.call_log.user_turn(user_utterance, language=language)
+        self._set_language(user_utterance, language)
+        self.call_log.user_turn(user_utterance, language=self.language)
 
         if self.state in (AgentState.AWAITING_SLOT, AgentState.CLARIFYING):
             return await self._handle_slot_request(user_utterance)
@@ -116,6 +126,27 @@ class AgentSession:
             return await self._handle_confirmation_step(user_utterance)
 
         return await self._transfer("unsupported_state")
+
+    def message(self, key: str, **kwargs: Any) -> str:
+        """Return a localized caller-facing message by template key."""
+        return self._t(key, **kwargs)
+
+    def _t(self, key: str, **kwargs: Any) -> str:
+        template: str = getattr(self.templates, key)
+        return template.format(**kwargs) if kwargs else template
+
+    def _set_language(self, text: str, hint: str | None = None) -> None:
+        hinted = normalize_language(hint)
+        detected = hinted or (
+            detect_language(text) if not self._language_locked else None
+        )
+        if detected is None:
+            return
+        self.language = detected
+        self.templates = templates_for(detected)
+        self._language_locked = True
+        if self.call_log is not None:
+            self.call_log.call.language = detected
 
     def hangup(self, reason: str = "Caller hung up before completing the request.") -> str:
         """End an in-progress call when the caller disconnects."""
@@ -129,7 +160,7 @@ class AgentSession:
     async def _handle_slot_request(self, user_utterance: str) -> str:
         assert self.call_log is not None
         resolution = await self.resolver.resolve(
-            user_utterance, language=self.config.agent.language
+            user_utterance, language=self.language
         )
         logger.info(
             "Resolved utterance to date=%s time=%s confidence=%.2f (%s)",
@@ -148,11 +179,7 @@ class AgentSession:
             if self.clarification_count < self.max_clarifications:
                 self.clarification_count += 1
                 self.state = AgentState.CLARIFYING
-                reply = (
-                    "ക്ഷമിക്കണം, ഏത് തീയതിയും സമയവുമാണ് ഉദ്ദേശിച്ചത് എന്ന് വ്യക്തമാക്കാമോ?"
-                    if self.config.agent.language == "malayalam"
-                    else "Sorry, could you please clarify which date and time you prefer?"
-                )
+                reply = self._t("clarification")
                 self.call_log.agent_turn(reply)
                 return reply
 
@@ -164,14 +191,7 @@ class AgentSession:
             msg = "The caller's date and time could not be understood."
             self._finish(CallStatus.FAILED, msg, "unresolved")
             self.state = AgentState.FAILED
-            reply = (
-                "ക്ഷമിക്കണം, സമയം മനസ്സിലാക്കാൻ കഴിഞ്ഞില്ല. ഒരു ഹ്യൂമൻ അസിസ്റ്റന്റിലേക്ക് മാറ്റാം."
-                if self.config.agent.language == "malayalam"
-                else (
-                    "Sorry, I could not understand the requested date and time. "
-                    "Transferring to an assistant."
-                )
-            )
+            reply = self._t("unresolved")
             self.call_log.agent_turn(reply)
             return reply
 
@@ -191,10 +211,10 @@ class AgentSession:
 
         day, availability = await self._find_open_day(resolution.date)
         if day is None:
-            message = str(
-                availability.get("message")
-                or "No open clinic day was found in the next week."
-            )
+            if self.language == "en-IN":
+                message = str(availability.get("message") or self._t("no_open_day"))
+            else:
+                message = self._t("no_open_day")
             self.call_log.agent_turn(message)
             self._finish(CallStatus.FAILED, message, "no_availability")
             self.state = AgentState.FAILED
@@ -202,7 +222,7 @@ class AgentSession:
 
         slots = [str(s) for s in availability.get("available") or []]
         if not slots:
-            message = f"All appointments are taken on {day.isoformat()}."
+            message = self._t("all_taken", date=day.isoformat())
             self.call_log.agent_turn(message)
             self._finish(CallStatus.FAILED, message, "no_availability")
             self.state = AgentState.FAILED
@@ -220,18 +240,25 @@ class AgentSession:
 
         if self.caller_name:
             self.state = AgentState.AWAITING_CONFIRMATION
-            reply = (
-                f"Confirming {self.caller_name}, {day.isoformat()} at {chosen}, "
-                f"{self.clinic_name}. Shall I book it?"
+            reply = self._t(
+                "confirming",
+                name=self.caller_name,
+                date=day.isoformat(),
+                time=chosen,
+                clinic=self.clinic_name,
             )
         else:
             self.state = AgentState.AWAITING_NAME
             if chosen == self.requested_time:
-                reply = f"{day.isoformat()} at {self.requested_time} is available."
+                reply = self._t(
+                    "available", date=day.isoformat(), time=self.requested_time
+                )
             else:
-                reply = (
-                    f"{day.isoformat()} at {self.requested_time} is taken; "
-                    f"the nearest open slot is {chosen}."
+                reply = self._t(
+                    "nearest",
+                    date=day.isoformat(),
+                    time=self.requested_time,
+                    slot=chosen,
                 )
 
         self.call_log.agent_turn(reply)
@@ -248,9 +275,12 @@ class AgentSession:
             self.caller_name = user_utterance.strip().split(".")[0]
 
         self.state = AgentState.AWAITING_CONFIRMATION
-        reply = (
-            f"Confirming {self.caller_name}, {self.chosen_date.isoformat()} at {self.chosen_time}, "
-            f"{self.clinic_name}. Shall I book it?"
+        reply = self._t(
+            "confirming",
+            name=self.caller_name,
+            date=self.chosen_date.isoformat(),
+            time=self.chosen_time,
+            clinic=self.clinic_name,
         )
         self.call_log.agent_turn(reply)
         return reply
@@ -263,11 +293,11 @@ class AgentSession:
             if extracted:
                 self.caller_name = extracted
 
-        if self._is_positive_confirmation(user_utterance) or "book" in user_utterance.lower():
+        if self._is_positive_confirmation(user_utterance):
             return await self._execute_booking()
 
         # If caller rejects or asks for changes
-        reply = "Booking was not confirmed. Would you like to check a different date or time?"
+        reply = self._t("rejected")
         self.state = AgentState.AWAITING_SLOT
         self.call_log.agent_turn(reply)
         return reply
@@ -287,7 +317,7 @@ class AgentSession:
         )
 
         if booking.get("status") != "confirmed":
-            message = f"The booking could not be confirmed ({booking.get('status')})."
+            message = self._t("booking_failed", status=booking.get("status"))
             self.call_log.agent_turn(message)
             self._finish(CallStatus.FAILED, message, "booking_failed")
             self.state = AgentState.FAILED
@@ -299,9 +329,12 @@ class AgentSession:
             f"{name} booked an appointment at {self.clinic_name} on "
             f"{booking.get('slot_start')} (reference {self.booking_id})."
         )
-        reply = (
-            f"{name}, an appointment at {self.clinic_name} has been booked on "
-            f"{booking.get('slot_start')} (reference {self.booking_id}). Thank you!"
+        reply = self._t(
+            "booked",
+            name=name,
+            clinic=self.clinic_name,
+            slot=booking.get("slot_start"),
+            reference=self.booking_id,
         )
         self._finish(CallStatus.COMPLETED, summary, "booked")
         self.state = AgentState.COMPLETED
@@ -311,9 +344,11 @@ class AgentSession:
         assert self.call_log is not None
         if "transfer_to_human" in self._enabled_tools:
             await self._safe_invoke_tool("transfer_to_human", {"reason": reason})
-        message = "Transferring to a human operator."
+        message = self._t("transfer")
         self.call_log.agent_turn(message)
-        self._finish(CallStatus.TRANSFERRED, message, "transferred")
+        self._finish(
+            CallStatus.TRANSFERRED, "Transferred to a human operator.", "transferred"
+        )
         self.state = AgentState.TRANSFERRED
         return message
 
@@ -345,7 +380,7 @@ class AgentSession:
                 return None, result
             assert self.call_log is not None
             self.call_log.agent_turn(
-                f"The clinic is closed on {day.isoformat()}; checking the next day."
+                self._t("closed_day", date=day.isoformat())
             )
             day += timedelta(days=1)
         return None, result
@@ -357,17 +392,50 @@ class AgentSession:
         return later[0] if later else slots[0]
 
     def _extract_name(self, text: str) -> str | None:
-        patterns = [
-            r"(?:എന്റെ\s+പേര്|പേര്|name\s+is|I am|this is)\s*[:=]?\s*([A-Za-z\u0D00-\u0D7F\s]+)",
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                candidate = match.group(1).strip()
-                # Stop at sentence boundary
-                candidate = re.split(r"[.,\n;]", candidate)[0].strip()
-                if len(candidate) >= 2:
-                    return candidate
+        prefixes = (
+            r"എന്റെ\s+പേര്",
+            r"പേര്",
+            r"मेरा\s+नाम",
+            r"माझे\s+नाव",
+            r"माझं\s+नाव",
+            r"आमचे\s+नाव",
+            r"नाम",
+            r"नाव",
+            r"আমার\s+নাম",
+            r"নাম",
+            r"என்\s+பெயர்",
+            r"பெயர்",
+            r"నా\s+పేరు",
+            r"పేరు",
+            r"ನನ್ನ\s+ಹೆಸರು",
+            r"ಹೆಸರು",
+            r"મારું\s+નામ",
+            r"નામ",
+            r"ਮੇਰਾ\s+ਨਾਮ",
+            r"ਨਾਮ",
+            r"name\s+is",
+            r"I\s+am",
+            r"this\s+is",
+        )
+        name_chars = (
+            r"A-Za-z"
+            r"\u0900-\u097F"
+            r"\u0980-\u09FF"
+            r"\u0A00-\u0A7F"
+            r"\u0A80-\u0AFF"
+            r"\u0B80-\u0BFF"
+            r"\u0C00-\u0C7F"
+            r"\u0C80-\u0CFF"
+            r"\u0D00-\u0D7F"
+        )
+        pattern = (
+            rf"(?:{'|'.join(prefixes)})\s*[:=]?\s*([{name_chars}\s]+)"
+        )
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            candidate = re.split(r"[.,\n;]", match.group(1).strip())[0].strip()
+            if len(candidate) >= 2:
+                return candidate
         return None
 
     def _is_positive_confirmation(self, text: str) -> bool:
@@ -383,6 +451,44 @@ class AgentSession:
             "ok",
             "okay",
             "sure",
+            "book",
+            "proceed",
+            "हाँ",
+            "हां",
+            "जी",
+            "ठीक",
+            "बुक",
+            "बुकिंग",
+            "कर दीजिए",
+            "होय",
+            "हो",
+            "निश्चित",
+            "হ্যাঁ",
+            "হাঁ",
+            "ঠিক",
+            "বুক",
+            "নিশ্চিত",
+            "ஆம்",
+            "ஆமாம்",
+            "சரி",
+            "பதிவு",
+            "உறுதி",
+            "అవును",
+            "సరే",
+            "బుక్",
+            "నిర్ధారించు",
+            "ಹೌದು",
+            "ಸರಿ",
+            "ಬುಕ್",
+            "ದೃಢೀಕರಿಸು",
+            "હા",
+            "બરાબર",
+            "બુક",
+            "નિશ્ચિત",
+            "ਹਾਂ",
+            "ਠੀਕ",
+            "ਬੁੱਕ",
+            "ਪੱਕੀ",
         ]
         text_lower = text.lower()
         return any(k in text_lower for k in keywords)

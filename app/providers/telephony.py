@@ -24,12 +24,14 @@ class GenericProvider(TelephonyProvider):
         audio_url: str | None = None,
         listen_for_input: bool = True,
         action_url: str | None = None,
+        language: str = "ml-IN",
     ) -> dict[str, Any]:
         return {
             "reply": text_message,
             "audio_url": audio_url,
             "listen_for_input": listen_for_input,
             "action_url": action_url,
+            "language": language,
         }
 
 
@@ -53,6 +55,7 @@ class TwilioProvider(TelephonyProvider):
         audio_url: str | None = None,
         listen_for_input: bool = True,
         action_url: str | None = None,
+        language: str = "ml-IN",
     ) -> str:
         escaped_text = escape(text_message)
         xml_parts: list[str] = ['<?xml version="1.0" encoding="UTF-8"?>', "<Response>"]
@@ -60,12 +63,12 @@ class TwilioProvider(TelephonyProvider):
         if audio_url:
             content = f"<Play>{escape(audio_url)}</Play>"
         else:
-            content = f'<Say language="ml-IN">{escaped_text}</Say>'
+            content = f'<Say language="{escape(language)}">{escaped_text}</Say>'
 
         if listen_for_input and action_url:
             gather_tag = (
                 f'<Gather input="speech" action="{escape(action_url)}" '
-                'method="POST" speechTimeout="auto" language="ml-IN">'
+                f'method="POST" speechTimeout="auto" language="{escape(language)}">'
             )
             xml_parts.append(gather_tag)
             xml_parts.append(f"  {content}")

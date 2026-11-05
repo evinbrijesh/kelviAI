@@ -97,7 +97,7 @@ async def test_agent_session_multi_turn_booking(
 
         # Turn 3: Caller confirms
         reply3 = await agent.process_turn("അതെ, ബുക്ക് ചെയ്യാം")
-        assert "booked" in reply3.lower() or "reference" in reply3.lower()
+        assert "ബുക്ക് ചെയ്തു" in reply3 or "റഫറൻസ്" in reply3
         assert agent.state == AgentState.COMPLETED
         assert agent.booking_id is not None
         assert agent.call.status == "completed"
@@ -155,7 +155,7 @@ async def test_agent_session_booking_conflict_ends_call_as_failed(
 
         reply = await agent.process_turn("അതെ, ബുക്ക് ചെയ്യാം")
 
-        assert "could not be confirmed" in reply
+        assert "ഉറപ്പാക്കാൻ കഴിഞ്ഞില്ല" in reply
         assert agent.state == AgentState.FAILED
         assert agent.call.status == "failed"
 
@@ -289,10 +289,10 @@ async def test_agent_session_no_availability_ends_call(
 
         reply = await agent.process_turn(f"{next_working_day().isoformat()} 10:00-ന് വേണം")
 
-        assert "open clinic day" in reply
+        assert "ഓപ്പൺ ക്ലിനിക്" in reply
         assert agent.state == AgentState.FAILED
         assert agent.call.status == "failed"
-        assert await agent.process_turn("ഹലോ") == "This call has already concluded."
+        assert await agent.process_turn("ഹലോ") == "ഈ കോൾ അവസാനിച്ചു."
 
 
 @pytest.mark.asyncio
@@ -333,7 +333,7 @@ async def test_agent_session_all_slots_taken_ends_call(
 
         reply = await agent.process_turn(f"{target_day.isoformat()} 10:00-ന് വേണം")
 
-        assert "All appointments are taken" in reply
+        assert "എല്ലാ അപ്പോയിന്റ്മെന്റുകളും" in reply
         assert agent.state == AgentState.FAILED
         assert agent.call.status == "failed"
 
@@ -390,7 +390,7 @@ async def test_agent_session_hangup_ends_call_as_abandoned(
         assert agent.state == AgentState.FAILED
         assert agent.call.status == "failed"
         assert agent.call.summary == "Caller hung up before completing the request."
-        assert await agent.process_turn("ശരി") == "This call has already concluded."
+        assert await agent.process_turn("ശരി") == "ഈ കോൾ അവസാനിച്ചു."
 
 
 @pytest.mark.asyncio

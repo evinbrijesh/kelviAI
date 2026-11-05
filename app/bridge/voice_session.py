@@ -13,6 +13,7 @@ from app.bridge.audio_utils import (
 )
 from app.config import AppConfig
 from app.llm.interfaces import DateTimeResolver, STTAdapter, TTSAdapter
+from app.llm.language import resolve_language
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class VoiceTurnResult:
     audio_format: str
     state: AgentState
     is_terminal: bool
+    language: str
     booking_id: str | None = None
     latencies_ms: dict[str, float] = field(default_factory=dict)
 
@@ -39,7 +41,7 @@ class VoiceSession:
         stt_adapter: STTAdapter,
         tts_adapter: TTSAdapter,
         *,
-        default_language: str = "ml-IN",
+        default_language: str = "indic-auto",
     ) -> None:
         self.agent_session = agent_session
         self.stt = stt_adapter
@@ -55,13 +57,17 @@ class VoiceSession:
     def state(self) -> AgentState:
         return self.agent_session.state
 
+    @property
+    def language(self) -> str:
+        return self.agent_session.language
+
     async def start(self, *, emit_greeting: bool = True) -> VoiceTurnResult:
         """Start agent session, synthesize greeting, and commit initial turn."""
         greeting_text = self.agent_session.start(emit_greeting=emit_greeting)
 
         t_start = time.perf_counter()
         tts_result = await self.tts.synthesize(
-            greeting_text, language=self.default_language
+            greeting_text, language=self.agent_session.language
         )
         tts_ms = round((time.perf_counter() - t_start) * 1000, 2)
         self.latest_audio = tts_result.audio
@@ -77,6 +83,7 @@ class VoiceSession:
             audio_format=tts_result.format,
             state=self.agent_session.state,
             is_terminal=False,
+            language=self.agent_session.language,
             booking_id=None,
             latencies_ms={"tts_ms": tts_ms},
         )
@@ -107,14 +114,23 @@ class VoiceSession:
         stt_ms = round((time.perf_counter() - t_stt) * 1000, 2)
         caller_transcript = stt_result.text.strip()
 
-        # 2. Process turn through AgentSession
+        # 2. Process turn through AgentSession in the caller's detected language
+        detected_language = resolve_language(
+            caller_transcript,
+            hint=stt_result.language,
+            default=self.agent_session.language,
+        )
         t_agent = time.perf_counter()
-        agent_reply = await self.agent_session.process_turn(caller_transcript)
+        agent_reply = await self.agent_session.process_turn(
+            caller_transcript, language=detected_language
+        )
         agent_ms = round((time.perf_counter() - t_agent) * 1000, 2)
 
-        # 3. Synthesize agent response via TTS
+        # 3. Synthesize the reply with a voice for the reply language
         t_tts = time.perf_counter()
-        tts_result = await self.tts.synthesize(agent_reply, language=lang, **kwargs)
+        tts_result = await self.tts.synthesize(
+            agent_reply, language=self.agent_session.language, **kwargs
+        )
         tts_ms = round((time.perf_counter() - t_tts) * 1000, 2)
         self.latest_audio = tts_result.audio
 
@@ -135,6 +151,7 @@ class VoiceSession:
             audio_format=tts_result.format,
             state=self.agent_session.state,
             is_terminal=is_terminal,
+            language=self.agent_session.language,
             booking_id=self.agent_session.booking_id,
             latencies_ms={
                 "stt_ms": stt_ms,

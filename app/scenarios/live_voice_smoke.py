@@ -34,11 +34,14 @@ async def run_live_smoke() -> int:
     stt = GnaniSTTAdapter(config.gnani, config.model.stt)
 
     test_phrase = "നമസ്കാരം, വാണികിറ്റ് ലൈവ് വോയ്സ് പരിശോധന."
-    print(f"1. Synthesizing Malayalam TTS: '{test_phrase}'...")
+    # The phrase is Malayalam, so TTS needs a concrete language; STT keeps
+    # indic-auto below to verify automatic detection.
+    tts_language = "ml-IN"
+    print(f"1. Synthesizing Malayalam TTS ({tts_language}): '{test_phrase}'...")
 
     try:
         t0 = time.perf_counter()
-        tts_res = await tts.synthesize(test_phrase, language=config.model.stt.language)
+        tts_res = await tts.synthesize(test_phrase, language=tts_language)
         tts_time = round((time.perf_counter() - t0) * 1000, 2)
         print(f"   [OK] TTS synthesized in {tts_time} ms")
         print(f"   Audio size:  {len(tts_res.audio)} bytes")

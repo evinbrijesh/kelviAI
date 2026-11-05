@@ -4,6 +4,7 @@ import httpx
 
 from app.config import GnaniConfig, STTConfig, TTSConfig
 from app.llm.interfaces import STTAdapter, STTMode, STTResult, TTSAdapter, TTSMode, TTSResult
+from app.llm.language import DEFAULT_LANGUAGE, default_voice, normalize_language
 
 
 class GnaniSTTAdapter(STTAdapter):
@@ -65,11 +66,20 @@ class GnaniTTSAdapter(TTSAdapter):
         raise NotImplementedError(f"TTS mode {mode} not yet implemented")
 
     async def _synthesize_rest(self, text: str, **kwargs: Any) -> TTSResult:
+        language = (
+            normalize_language(kwargs.get("language")) or DEFAULT_LANGUAGE
+        )
+        voice = (
+            kwargs.get("voice")
+            or self.tts_config.voices.get(language)
+            or default_voice(language)
+            or self.tts_config.voice
+        )
         data = {
             "text": text,
             "model": self.tts_config.model,
-            "voice": self.tts_config.voice,
-            "language": kwargs.get("language", "ml-IN"),
+            "voice": voice,
+            "language": language,
             "speed": kwargs.get("speed", 1.0),
             "audio_config": {
                 "sample_rate": 48000,

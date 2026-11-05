@@ -32,6 +32,7 @@ class STTConfig(BaseModel):
 class TTSConfig(BaseModel):
     model: str
     voice: str
+    voices: dict[str, str] = Field(default_factory=dict)
 
 
 class ModelConfig(BaseModel):

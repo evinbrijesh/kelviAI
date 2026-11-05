@@ -21,13 +21,13 @@ flowchart TD
     subgraph Engine ["Orchestration & Voice Engine"]
         VoiceSession["VoiceSession Bridge\n(app/bridge/voice_session.py)\nTurn timing & audio formatting"]
         AgentSession["AgentSession State Machine\n(app/agent/session.py)\nState progression & clarifications"]
-        Resolver["CustomDateTimeResolver\n(app/llm/custom_resolver.py)\nMalayalam date/time extraction"]
+        Resolver["CustomDateTimeResolver\n(app/llm/custom_resolver.py)\nMultilingual date/time extraction"]
         Registry["ToolRegistry\n(app/tools/registry.py)\nJSON Schema validation & timeouts"]
     end
     
     subgraph SpeechLayer ["Gnani Live Speech Layer"]
-        STT["Gnani STT: prisma-v3.0\n(ml-IN, multipart audio_file)"]
-        TTS["Gnani TTS: timbre-v2.5\n(Voice: Reshma, 48kHz WAV)"]
+        STT["Gnani STT: prisma-v3.0\n(indic-auto, multipart audio_file)"]
+        TTS["Gnani TTS: timbre-v2.5\n(per-language voice, 48kHz WAV)"]
     end
     
     subgraph Storage ["Persistence (PostgreSQL / SQLAlchemy)"]
@@ -54,20 +54,42 @@ flowchart TD
 VaaniKit is designed around documented, verifiable interfaces with clean fallbacks:
 
 * **Speech-to-Text (STT) — Gnani Prisma v3.0:**
-  * Uses `/stt/v3` with multipart payload `audio_file` and language code `ml-IN`.
-  * Returns native Malayalam script (`transcript`) with automatic language detection (`detected_language_code`).
+  * Uses `/stt/v3` with multipart payload `audio_file` and `language_code=indic-auto`.
+  * Returns the transcript in its native script plus the spoken `detected_language_code`.
 * **Text-to-Speech (TTS) — Gnani Timbre v2.5:**
-  * Uses `/api/v1/tts/inference` with the documented Malayalam voice **Reshma** and structured `audio_config`.
+  * Uses `/api/v1/tts/inference` with a documented voice for the detected language (see the table below) and structured `audio_config`.
   * Delivers high-fidelity 48 kHz mono linear PCM inside a standard WAV container.
+* **Language Handling — `app/llm/language.py`:**
+  * Supports the ten documented Prisma/Timbre languages: Bengali (`bn-IN`), English (`en-IN`), Gujarati (`gu-IN`), Hindi (`hi-IN`), Kannada (`kn-IN`), Malayalam (`ml-IN`), Marathi (`mr-IN`), Punjabi (`pa-IN`), Tamil (`ta-IN`), and Telugu (`te-IN`).
+  * Voice calls use the STT-detected language; text and simulation paths detect the language from its Unicode script (with Marathi keyword hints for Devanagari).
+  * Agent replies, clarifications, confirmations, and booking summaries are rendered in the caller's language from `app/agent/replies.py`.
 * **Date/Time Resolution — `CustomDateTimeResolver`:**
-  * Rather than relying on unverified external LLM parameters, colloquial Malayalam temporal phrases (e.g. *"നാളെ രാവിലെ 10 മണിക്ക്"*, *"അടുത്ത തിങ്കളാഴ്ച"*) are parsed by a deterministic resolver grounded in Indian Standard Time (`Asia/Kolkata`).
+  * Rather than relying on unverified external LLM parameters, colloquial temporal phrases in every supported language (e.g. *"നാളെ രാവിലെ 10 മണിക്ക്"*, *"कल सुबह 10 बजे"*, *"நாளை காலை 10 மணிக்கு"*) are parsed by a deterministic resolver grounded in Indian Standard Time (`Asia/Kolkata`).
+  * Handles relative days, morning/afternoon/evening/night qualifiers, o'clock markers, half-hours, native-script digits, ISO and `DD/MM/YYYY` dates, and structured times.
   * Emits structured ISO dates, normalized times, confidence scores, and diagnostic explanations.
 * **Warp & Evon Stubs:**
   * Modular stubs exist in `app/llm/warp_stubs.py` and `app/llm/evon_stub.py`. Because Warp and Evon lack live documentation, the system defaults to Path B (verified Gnani Speech APIs + deterministic resolver) without brittle undocumented assumptions.
 
+### Per-language TTS voices
+
+| Language | Code | Voice |
+| --- | --- | --- |
+| Bengali | `bn-IN` | Kirra |
+| English | `en-IN` | Kaveri |
+| Gujarati | `gu-IN` | Falak |
+| Hindi | `hi-IN` | Nalini |
+| Kannada | `kn-IN` | Saanvi |
+| Malayalam | `ml-IN` | Reshma |
+| Marathi | `mr-IN` | Zahira |
+| Punjabi | `pa-IN` | Mehuli |
+| Tamil | `ta-IN` | Asmita |
+| Telugu | `te-IN` | Suhana |
+
+These mappings are the defaults; `model.tts.voices` in `agent.yaml` overrides any language, and `model.tts.voice` remains the fallback.
+
 ---
 
-## Supported Malayalam Conversation Flow & Limitations
+## Multilingual Conversation Flow & Limitations
 
 ### 1. Conversation Progression
 
@@ -90,16 +112,19 @@ Offers nearest open slot             [COMPLETED] ──► Transactional booking
   or TRANSFERRED to human
 ```
 
-1. **Greeting (`AWAITING_SLOT`):** Greets in Malayalam (*"നമസ്കാരം, ഞാൻ വാണികിറ്റ് അസിസ്റ്റന്റ് ആണ്..."*) and requests the desired slot.
-2. **Ambiguity Handling (`CLARIFYING`):** If the caller's time expression has low confidence (< 0.6) or is incomplete, the agent asks for clarification (*"ദയവായി സമയം വ്യക്തമാക്കാമോ?"*). Bounded at 2 clarification attempts before failing cleanly.
-3. **Availability & Conflict Resolution:** The tool checks calendar open hours and conflicts. If the slot is taken or the clinic is closed, the agent automatically suggests the nearest open alternative.
-4. **Name Capture (`AWAITING_NAME`):** Extracts the caller/patient name.
-5. **Confirmation (`AWAITING_CONFIRMATION`):** Repeats the clinic, date, time, and patient name before booking.
-6. **Transactional Commit (`COMPLETED`):** Books the slot in the database, releases the temporary lock, records the booking ID, and issues a confirmation reference.
-7. **Human Handoff (`TRANSFERRED`):** If the caller's request cannot be satisfied or clarification is exceeded, the call transfers to a human operator.
+1. **Greeting (`AWAITING_SLOT`):** Plays the configured `agent.greeting` (Malayalam by default) and requests the desired slot. The greeting is sent before the caller speaks, so it stays in the configured language; every reply after the first turn follows the caller.
+2. **Language Detection:** Voice turns take the STT `detected_language_code`; text and simulation turns detect the Unicode script. The first detected language locks the call for text paths so a later Latin-script name does not flip an Indic conversation to English, while voice turns may still change language when the STT hint changes.
+3. **Ambiguity Handling (`CLARIFYING`):** If the caller's time expression has low confidence (< 0.6) or is incomplete, the agent asks for clarification in the caller's language (*"ദയവായി സമയം വ്യക്തമാക്കാമോ?"*, *"कृपया समय स्पष्ट करें?"*). Bounded at 2 clarification attempts before failing cleanly.
+4. **Availability & Conflict Resolution:** The tool checks calendar open hours and conflicts. If the slot is taken or the clinic is closed, the agent automatically suggests the nearest open alternative.
+5. **Name Capture (`AWAITING_NAME`):** Extracts the caller/patient name from all supported scripts.
+6. **Confirmation (`AWAITING_CONFIRMATION`):** Repeats the clinic, date, time, and patient name in the caller's language before booking.
+7. **Transactional Commit (`COMPLETED`):** Books the slot in the database, releases the temporary lock, records the booking ID, and issues a confirmation reference in the caller's language.
+8. **Human Handoff (`TRANSFERRED`):** If the caller's request cannot be satisfied or clarification is exceeded, the call transfers to a human operator.
 
 ### 2. Limitations
 
+* **Language Detection Scope:** Detection covers the ten documented Prisma/Timbre languages. Romanized Indic input written in Latin script is treated as English (`en-IN`), and unsupported languages fall back to the configured default.
+* **Greeting Language:** The first greeting uses `agent.language` because no caller audio exists yet; replies mirror the caller from the first processed turn onward.
 * **Slot Alignment:** Bookings are quantized to 30-minute intervals aligned with clinic working hours.
 * **Single Calendar Scope:** Each active session queries and books against a primary active clinic calendar.
 * **Audio Requirements:** Inbound telephony audio expects linear PCM or WAV (raw 8/16 kHz streams are automatically wrapped into 16 kHz WAV before reaching STT).
@@ -213,6 +238,22 @@ for the exact utterances and pronunciation checks, and
 
 ---
 
+## Demo
+
+The screenshots below come from the seeded synthetic dataset. The 60-second script,
+three-minute backup demo, and freeze checklist are in the
+[demo runbook](docs/demo-runbook.md).
+
+| Dashboard | Call detail |
+| --- | --- |
+| ![Admin dashboard](docs/screenshots/admin-dashboard.png) | ![Call detail with event timeline](docs/screenshots/admin-call-detail.png) |
+
+Mobile layout at 390px:
+
+![Admin dashboard on mobile](docs/screenshots/admin-mobile.png)
+
+---
+
 ## Live Speech Verification
 
 VaaniKit includes a live speech verification runner exercising Gnani STT (`prisma-v3.0`) and TTS (`timbre-v2.5` voice `Reshma`):
@@ -315,8 +356,10 @@ the four synthetic demo calls immediately.
 
 Edit `agent.yaml` to configure:
 
-* Agent language, greeting, persona, and rules
-* STT/TTS models (Gnani Prisma and Timbre) and the date/time resolver
+* Agent language (`agent.language`, the greeting and fallback language), greeting, persona, and rules
+* STT/TTS models — keep `stt.language: indic-auto` so Prisma reports the spoken language per turn
+* `tts.voices` per-language voice overrides (the documented defaults are built in; `tts.voice` is the fallback)
+* The date/time resolver
 * Declared tools and their JSON argument schemas
 * Database connection (via `${DATABASE_URL}`)
 
@@ -330,8 +373,8 @@ Unknown or malformed sections fail startup with a safe `ConfigError` instead of 
 VaaniKit includes a test suite covering database isolation, concurrent slot booking races, security audits, admin routes, and Gnani adapters:
 
 ```bash
-make test     # pytest (112 unit & integration tests)
-make lint     # ruff + mypy (0 errors across 38 source files)
+make test     # pytest (166 unit & integration tests)
+make lint     # ruff + mypy (0 errors across 40 source files)
 ```
 
 ---
@@ -362,6 +405,7 @@ VaaniKit was built by **Evin Brijesh** and **Athul Sunil Kumar**:
 ## Documentation
 
 * [Execution Plan](docs/VaaniKit_Execution_Plan_Nov1-6.md)
+* [Demo Runbook](docs/demo-runbook.md)
 * [Integration Notes](docs/integration-notes.md)
 * [Malayalam Demo Script](docs/malayalam-demo-script.md)
 * [Demo Fixtures and Data Reset](docs/demo-fixtures.md)

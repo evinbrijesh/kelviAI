@@ -55,10 +55,12 @@ Since Warp is undocumented, we will:
 
 ## Language Support
 
-- 10 Indian languages plus English
+- 10 documented languages: Bengali (`bn-IN`), English (`en-IN`), Gujarati (`gu-IN`),
+  Hindi (`hi-IN`), Kannada (`kn-IN`), Malayalam (`ml-IN`), Marathi (`mr-IN`),
+  Punjabi (`pa-IN`), Tamil (`ta-IN`), and Telugu (`te-IN`)
 - Native-script output supported
-- Automatic language detection on Prisma v3.0
-- Malayalam is supported (verify exact support level in quick start)
+- Automatic language detection on Prisma v3.0 with `language_code: indic-auto`
+- The multilingual implementation is documented under "Multilingual behavior" below
 
 ## Next Steps
 
@@ -108,4 +110,56 @@ synthetic TTS audio. Confirmed behavior:
 
 No audio was written to disk or committed; only in-memory synthetic speech was used.
 The local simulation remains the guaranteed demo path (Path B).
+
+## Multilingual behavior — November 5, 2026
+
+The verified live path was Malayalam-only; it now covers every documented language
+without adding undocumented parameters.
+
+### Speech-to-text
+
+- `agent.yaml` sends `language_code: indic-auto` on every `/stt/v3` request.
+- Prisma returns `transcript` in the spoken script and `detected_language_code`
+  (verified value: `ml-IN` for Malayalam audio).
+- The adapter normalizes the detected code (`app/llm/language.py`) and forwards it
+  to the agent session; an unrecognized code falls back to the session language.
+
+### Reply language
+
+- Voice turns: the detected STT language wins, so the reply text and TTS audio both
+  use the caller's language.
+- Text and simulation turns: the Unicode script of the utterance is detected
+  (Devanagari defaults to Hindi, refined to Marathi using distinctive keywords).
+  The first detection locks that language for the call so a Latin-script name turn
+  cannot flip an Indic call to English.
+- The greeting is emitted before any caller audio, so it uses `agent.language`
+  (default `ml-IN`). Every later reply uses `app/agent/replies.py` templates for the
+  caller's language; unsupported languages fall back to Malayalam.
+
+### Text-to-speech
+
+- Timbre requires a documented voice per language; the adapter resolves
+  `tts.voices[language]`, then the built-in default, then `tts.voice`.
+- Defaults: bn Kirra, en Kaveri, gu Falak, hi Nalini, kn Saanvi, ml Reshma,
+  mr Zahira, pa Mehuli, ta Asmita, te Suhana.
+- Language and voice are sent together so the synthesized audio matches the reply
+  text; the audio config (48 kHz mono linear PCM WAV) is unchanged.
+
+### Date/time resolver
+
+- The deterministic resolver (`app/llm/custom_resolver.py`) gained lexicons for
+  relative days, day periods, number words 1–12, clock markers, and half-hour
+  prefixes in all ten languages, plus native-digit normalization and
+  `DD/MM/YYYY` support.
+- The caller's language is searched first, then the remaining languages, so
+  mixed-language input still resolves. ISO output, confidence values, and
+  `Asia/Kolkata` grounding are unchanged.
+
+### Verification
+
+No new live calls were made for the other languages; the live Malayalam
+round trip above remains the only recorded live result. Multilingual date/time
+resolution and agent behavior are covered by deterministic tests
+(`tests/test_language.py`, `tests/test_resolver.py`, `tests/test_multilingual_agent.py`,
+`tests/test_voice_session.py`, `tests/test_gnani_adapters.py`).
 

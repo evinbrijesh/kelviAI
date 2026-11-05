@@ -93,3 +93,71 @@ async def test_resolve_unrecognized() -> None:
     assert res.date is None
     assert res.time is None
     assert res.confidence == 0.0
+
+
+@pytest.mark.parametrize(
+    ("language", "utterance"),
+    [
+        ("hi-IN", "कल सुबह 10 बजे अपॉइंटमेंट चाहिए"),
+        ("mr-IN", "उद्या सकाळी 10 वाजता हवे आहे"),
+        ("bn-IN", "কাল সকাল ১০টায় অ্যাপয়েন্টমেন্ট চাই"),
+        ("ta-IN", "நாளை காலை 10 மணிக்கு வேண்டும்"),
+        ("te-IN", "రేపు ఉదయం 10 గంటలకు కావాలి"),
+        ("kn-IN", "ನಾಳೆ ಬೆಳಗ್ಗೆ 10 ಗಂಟೆಗೆ ಬೇಕು"),
+        ("gu-IN", "કાલે સવારે 10 વાગ્યે જોઈએ"),
+        ("pa-IN", "ਕੱਲ੍ਹ ਸਵੇਰੇ 10 ਵਜੇ ਚਾਹੀਦਾ ਹੈ"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_resolve_tomorrow_morning_in_each_language(
+    language: str, utterance: str
+) -> None:
+    resolver = CustomDateTimeResolver()
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+
+    res = await resolver.resolve(utterance, language=language)
+
+    assert res.date == (now + timedelta(days=1)).date()
+    assert res.time == time(10, 0)
+    assert res.confidence >= 0.9
+
+
+@pytest.mark.asyncio
+async def test_resolve_hindi_day_after_tomorrow_evening() -> None:
+    resolver = CustomDateTimeResolver()
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+
+    res = await resolver.resolve("परसों शाम 5 बजे", language="hi-IN")
+
+    assert res.date == (now + timedelta(days=2)).date()
+    assert res.time == time(17, 0)
+
+
+@pytest.mark.asyncio
+async def test_resolve_hindi_half_hour() -> None:
+    resolver = CustomDateTimeResolver()
+
+    res = await resolver.resolve("साढ़े दस बजे", language="hi-IN")
+
+    assert res.time == time(10, 30)
+
+
+@pytest.mark.asyncio
+async def test_resolve_native_digits() -> None:
+    resolver = CustomDateTimeResolver()
+    now = datetime.now(ZoneInfo("Asia/Kolkata"))
+
+    res = await resolver.resolve("কাল সকাল ১০টায়", language="bn-IN")
+
+    assert res.date == (now + timedelta(days=1)).date()
+    assert res.time == time(10, 0)
+
+
+@pytest.mark.asyncio
+async def test_resolve_numeric_day_first_date() -> None:
+    resolver = CustomDateTimeResolver()
+
+    res = await resolver.resolve("6/11/2026 14:30", language="en-IN")
+
+    assert res.date.isoformat() == "2026-11-06"
+    assert res.time == time(14, 30)

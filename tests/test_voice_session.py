@@ -31,9 +31,11 @@ class DummySTT(STTAdapter):
 class DummyTTS(TTSAdapter):
     def __init__(self) -> None:
         self.calls: list[str] = []
+        self.languages: list[str | None] = []
 
     async def synthesize(self, text: str, **kwargs: Any) -> TTSResult:
         self.calls.append(text)
+        self.languages.append(kwargs.get("language"))
         return TTSResult(
             audio=b"RIFFdummywavdata",
             format="wav",
@@ -116,6 +118,43 @@ async def test_voice_session_process_turn_flow(
         assert "stt_ms" in turn.latencies_ms
         assert "agent_ms" in turn.latencies_ms
         assert "tts_ms" in turn.latencies_ms
+
+
+class HindiSTT(STTAdapter):
+    async def transcribe(self, audio: bytes, **kwargs: Any) -> STTResult:
+        return STTResult(
+            text="कल सुबह 10 बजे अपॉइंटमेंट चाहिए",
+            language="hi-IN",
+            confidence=0.97,
+            duration_ms=900,
+        )
+
+
+@pytest.mark.asyncio
+async def test_voice_session_uses_detected_language_for_reply(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    config = load_config(agent_config)
+    tts = DummyTTS()
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=CustomDateTimeResolver(),
+            caller_phone="+919000000008",
+        )
+        voice = VoiceSession(agent, HindiSTT(), tts)
+        await voice.start()
+
+        audio_input = wrap_pcm_in_wav(b"\x00\x00" * 400, sample_rate=16000)
+        turn = await voice.process_turn(audio_input)
+
+        assert turn.language == "hi-IN"
+        assert tts.languages[-1] == "hi-IN"
+        assert "स्लॉट उपलब्ध है" in turn.agent_reply
+        assert agent.language == "hi-IN"
+        assert agent.call.language == "hi-IN"
 
 
 @pytest.mark.asyncio

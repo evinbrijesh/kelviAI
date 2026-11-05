@@ -1,6 +1,6 @@
 agent:
   name: "vaanikit-demo"
-  language: "malayalam"
+  language: "ml-IN"
   greeting: "നമസ്കാരം, ഞാൻ വാണികിറ്റ് അസിസ്റ്റന്റ് ആണ്. എങ്ങനെ സഹായിക്കാം?"
   persona: "Helpful medical appointment assistant"
   rules:
@@ -13,10 +13,21 @@ model:
   provider: "gnani"
   stt:
     model: "prisma-v3.0"
-    language: "ml-IN"
+    language: "indic-auto"
   tts:
     model: "timbre-v2.5"
     voice: "Reshma"
+    voices:
+      bn-IN: "Kirra"
+      en-IN: "Kaveri"
+      gu-IN: "Falak"
+      hi-IN: "Nalini"
+      kn-IN: "Saanvi"
+      ml-IN: "Reshma"
+      mr-IN: "Zahira"
+      pa-IN: "Mehuli"
+      ta-IN: "Asmita"
+      te-IN: "Suhana"
   date_time_resolver: "custom"
 
 tools:

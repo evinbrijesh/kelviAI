@@ -18,6 +18,7 @@ from app.admin.routes import get_session
 from app.bridge.audio_utils import AudioValidationError
 from app.bridge.voice_session import VoiceSessionManager
 from app.config import AppConfig
+from app.llm.language import SUPPORTED_LANGUAGE_CODES
 from app.llm.registry import AdapterRegistry
 from app.providers.telephony import TwilioProvider
 
@@ -38,6 +39,7 @@ class VoiceStartResponse(BaseModel):
     call_sid: str
     greeting: str
     state: str
+    language: str
     audio_base64: str
     audio_url: str
 
@@ -52,6 +54,7 @@ class VoiceTurnResponse(BaseModel):
     caller_transcript: str
     agent_reply: str
     state: str
+    language: str
     is_terminal: bool
     booking_id: str | None
     audio_base64: str
@@ -66,6 +69,7 @@ class VoiceStatusResponse(BaseModel):
     tts_model: str
     tts_voice: str
     language: str
+    supported_languages: list[str]
     sample_rate: int
     active_calls: int
 
@@ -92,6 +96,7 @@ async def get_voice_status(request: Request) -> VoiceStatusResponse:
         tts_model=config.model.tts.model,
         tts_voice=config.model.tts.voice,
         language=config.model.stt.language,
+        supported_languages=list(SUPPORTED_LANGUAGE_CODES),
         sample_rate=48000,
         active_calls=_manager.active_count(),
     )
@@ -128,6 +133,7 @@ async def start_voice_session(
         call_sid=voice_session.call_sid,
         greeting=turn.agent_reply,
         state=turn.state.value,
+        language=turn.language,
         audio_base64=audio_b64,
         audio_url=audio_url,
     )
@@ -190,6 +196,7 @@ async def process_voice_turn(
         caller_transcript=turn.caller_transcript,
         agent_reply=turn.agent_reply,
         state=turn.state.value,
+        language=turn.language,
         is_terminal=turn.is_terminal,
         booking_id=turn.booking_id,
         audio_base64=audio_b64,
@@ -268,14 +275,16 @@ async def twilio_voice_webhook(
             audio_url=audio_url,
             listen_for_input=True,
             action_url=action_url,
+            language=turn.language,
         )
         return Response(content=twiml, media_type="application/xml")
 
     # Inbound speech utterance from Twilio Gather
     if speech_result:
         reply_text = await voice_session.agent_session.process_turn(speech_result)
+        reply_language = voice_session.agent_session.language
         tts = registry.get_tts_adapter()
-        tts_res = await tts.synthesize(reply_text, language=config.model.stt.language)
+        tts_res = await tts.synthesize(reply_text, language=reply_language)
         voice_session.latest_audio = tts_res.audio
         voice_session.agent_session.session.commit()
 
@@ -291,6 +300,7 @@ async def twilio_voice_webhook(
             audio_url=audio_url,
             listen_for_input=not is_terminal,
             action_url=action_url if not is_terminal else None,
+            language=reply_language,
         )
         if is_terminal:
             _manager.remove(call_sid)
@@ -299,7 +309,8 @@ async def twilio_voice_webhook(
 
     # Caller ended without speech
     twiml = _twilio_provider.format_response(
-        "നന്ദി, വീണ്ടും വിളിക്കുക.",
+        voice_session.agent_session.message("thanks"),
         listen_for_input=False,
+        language=voice_session.agent_session.language,
     )
     return Response(content=twiml, media_type="application/xml")

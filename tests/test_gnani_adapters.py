@@ -48,6 +48,70 @@ async def test_stt_adapter_uses_documented_multipart_fields() -> None:
 
 
 @pytest.mark.asyncio
+async def test_stt_adapter_accepts_indic_auto_detection() -> None:
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = request.read()
+        return httpx.Response(
+            200,
+            json={
+                "transcript": "कल सुबह 10 बजे",
+                "detected_language_code": "hi-IN",
+                "success": True,
+            },
+        )
+
+    adapter = GnaniSTTAdapter(
+        GnaniConfig(api_key_id="test-key", base_url="https://gnani.test"),
+        STTConfig(model="prisma-v3.0", language="indic-auto"),
+    )
+    await adapter.client.aclose()
+    adapter.client = httpx.AsyncClient(
+        base_url="https://gnani.test", transport=httpx.MockTransport(handler)
+    )
+
+    result = await adapter.transcribe(b"RIFFsample")
+    await adapter.close()
+
+    body = captured["body"]
+    assert isinstance(body, bytes)
+    assert b"indic-auto" in body
+    assert result.language == "hi-IN"
+
+
+@pytest.mark.asyncio
+async def test_tts_adapter_selects_documented_voice_per_language() -> None:
+    payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        payloads.append(json.loads(request.read()))
+        return httpx.Response(200, content=b"RIFFsample")
+
+    adapter = GnaniTTSAdapter(
+        GnaniConfig(api_key_id="test-key", base_url="https://gnani.test"),
+        TTSConfig(
+            model="timbre-v2.5",
+            voice="Reshma",
+            voices={"hi-IN": "Deepak"},
+        ),
+    )
+    await adapter.client.aclose()
+    adapter.client = httpx.AsyncClient(
+        base_url="https://gnani.test", transport=httpx.MockTransport(handler)
+    )
+
+    await adapter.synthesize("नमस्ते", language="hi-IN")
+    await adapter.synthesize("வணக்கம்", language="ta-IN")
+    await adapter.close()
+
+    assert payloads[0]["voice"] == "Deepak"
+    assert payloads[0]["language"] == "hi-IN"
+    assert payloads[1]["voice"] == "Asmita"
+    assert payloads[1]["language"] == "ta-IN"
+
+
+@pytest.mark.asyncio
 async def test_tts_adapter_sends_voice_and_audio_config() -> None:
     captured: dict[str, object] = {}
 

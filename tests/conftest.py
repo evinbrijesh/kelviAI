@@ -11,7 +11,7 @@ from app.main import app
 TEST_AGENT_CONFIG = """
 agent:
   name: "test-agent"
-  language: "malayalam"
+  language: "ml-IN"
   greeting: "നമസ്കാരം"
   persona: "Assistant"
   rules: []
@@ -19,7 +19,7 @@ model:
   provider: "gnani"
   stt:
     model: "prisma-v3.0"
-    language: "ml-IN"
+    language: "indic-auto"
   tts:
     model: "timbre-v2.5"
     voice: "default"

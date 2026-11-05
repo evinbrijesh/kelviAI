@@ -42,6 +42,9 @@ async def test_voice_status_endpoint(client: AsyncClient) -> None:
     assert data["tts_model"] == "timbre-v2.5"
     assert data["sample_rate"] == 48000
     assert "active_calls" in data
+    assert "ml-IN" in data["supported_languages"]
+    assert "hi-IN" in data["supported_languages"]
+    assert len(data["supported_languages"]) == 10
 
 
 @pytest.mark.asyncio
@@ -61,6 +64,7 @@ async def test_voice_session_lifecycle_and_turn(
     start_data = start_resp.json()
     call_sid = start_data["call_sid"]
     assert start_data["state"] == "awaiting_slot"
+    assert start_data["language"] == "ml-IN"
     assert start_data["audio_base64"] != ""
     assert start_data["audio_url"] == f"/api/voice/session/{call_sid}/audio"
 
@@ -82,6 +86,7 @@ async def test_voice_session_lifecycle_and_turn(
     turn_data = turn_resp.json()
     assert turn_data["caller_transcript"] == "നാളെ 10:00"
     assert "10:00" in turn_data["agent_reply"]
+    assert turn_data["language"] == "ml-IN"
     assert turn_data["state"] == "awaiting_name"
     assert not turn_data["is_terminal"]
     assert "total_ms" in turn_data["latencies_ms"]

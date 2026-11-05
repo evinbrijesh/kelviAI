@@ -70,7 +70,7 @@ async def _successful_booking(
     reply = await agent.process_turn("അതെ, ബുക്ക് ചെയ്യാം")
     _check(agent.state == AgentState.COMPLETED, "expected the call to complete")
     _check(agent.chosen_time == "14:00", "expected the requested 14:00 slot")
-    _check("booked" in reply.lower(), "expected a booking confirmation reply")
+    _check("ബുക്ക് ചെയ്തു" in reply, "expected a booking confirmation reply")
     result = agent.booking_result
     _check(result is not None, "expected a booking result")
     assert result is not None
@@ -97,7 +97,10 @@ async def _unavailable_slot_with_alternative(
 
     reply = await agent.process_turn(f"{day.isoformat()} 10:00-ന് വേണം")
     _check(agent.state == AgentState.AWAITING_NAME, "expected the agent to ask for a name")
-    _check("10:00 is taken" in reply, "expected the agent to report the conflict")
+    _check(
+        "10:00-ന് സമയം ലഭ്യമല്ല" in reply,
+        "expected the agent to report the conflict",
+    )
     _check("11:00" in reply, "expected the nearest open slot in the reply")
 
     await agent.process_turn("എന്റെ പേര് രാഹുൽ നായർ")
@@ -105,7 +108,7 @@ async def _unavailable_slot_with_alternative(
 
     _check(agent.state == AgentState.COMPLETED, "expected the call to complete")
     _check(agent.chosen_time == "11:00", "expected the 11:00 alternative, not 10:00")
-    _check("booked" in reply.lower(), "expected a booking confirmation reply")
+    _check("ബുക്ക് ചെയ്തു" in reply, "expected a booking confirmation reply")
 
 
 async def _ambiguous_request_then_hangup(
