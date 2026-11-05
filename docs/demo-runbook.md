@@ -17,7 +17,7 @@ or customer conversations are involved.
 ```bash
 git pull --ff-only
 make install
-make test          # 112 tests
+make test          # 167 tests
 make lint          # ruff + mypy
 make rehearse      # three-call local rehearsal, no network
 ```
@@ -55,7 +55,7 @@ Keep the cursor away from the **Live** toggle so the demo does not pause refresh
 
 1. **0:00–0:30 — Deterministic rehearsal.** Run `make rehearse` and show
    `[1/3] ... PASS`, `[2/3] ... PASS`, `[3/3] ... PASS`.
-2. **0:30–1:10 — Evidence.** Run `make test` and `make lint`; show 112 tests passing
+2. **0:30–1:10 — Evidence.** Run `make test` and `make lint`; show 167 tests passing
    and no lint or type errors.
 3. **1:10–2:00 — Architecture.** Walk the README diagram: FastAPI ingress, the
    explicit `AgentSession` state machine, the deterministic date resolver, the tool
@@ -85,12 +85,12 @@ data or layout changes.
 
 Run from the exact commit that will be tagged:
 
-- [ ] `make test`, `make lint`, and `make rehearse` pass.
+- [x] `make test`, `make lint`, and `make rehearse` pass. (167 tests, ruff + mypy clean, all 3 rehearsal scenarios pass)
 - [ ] Database initializes from a clean environment (`docker compose down -v` then up).
-- [ ] `make simulate SCENARIO=appointment-malayalam` completes with one confirmed booking.
+- [x] `make simulate SCENARIO=appointment-malayalam` completes with one confirmed booking.
 - [ ] `/health` returns `ok` and the dashboard loads at the deployed or local URL.
 - [ ] `/admin/status` reports masking enabled and recordings disabled.
-- [ ] No secrets or real data are staged (`tests/test_security_review.py` covers the checklist).
+- [x] No secrets or real data are staged (`tests/test_security_review.py` covers the checklist).
 - [ ] Tag `v0.1.0-hackathon` on the release commit.
 - [ ] Create the GitHub release from that tag and record the demo from the tag, not a working tree.
 

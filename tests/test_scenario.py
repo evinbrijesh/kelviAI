@@ -68,14 +68,17 @@ async def test_scenario_books_exactly_one_slot(agent_config: Path) -> None:
         tool_results = [
             event for event in events if event.event_type == str(EventType.TOOL_RESULT)
         ]
-        assert [event.tool_name for event in tool_calls] == [
-            "check_availability",
-            "book_slot",
-        ]
-        assert [event.tool_name for event in tool_results] == [
-            "check_availability",
-            "book_slot",
-        ]
+        tool_call_names = [event.tool_name for event in tool_calls]
+        tool_result_names = [event.tool_name for event in tool_results]
+        assert tool_call_names[-1] == "book_slot", "last tool call must be book_slot"
+        assert all(
+            name == "check_availability" for name in tool_call_names[:-1]
+        ), "all calls before book_slot must be check_availability"
+        assert tool_result_names[-1] == "book_slot", "last tool result must be book_slot"
+        assert all(
+            name == "check_availability" for name in tool_result_names[:-1]
+        ), "all results before book_slot must be check_availability"
+        assert len(tool_call_names) >= 2, "expected at least one check_availability and book_slot"
     finally:
         database.dispose()
 

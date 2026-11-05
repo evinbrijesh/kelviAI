@@ -40,6 +40,14 @@ def clinic_calendar(database: Database) -> Calendar:
 
 CASES = [
     {
+        "language": "ml-IN",
+        "opening": "നാളെ രാവിലെ 10 മണിക്ക് അപ്പോയിന്റ്മെന്റ് വേണം",
+        "name": "എന്റെ പേര് അഞ്ജലി",
+        "confirm": "അതെ, ബുക്ക് ചെയ്യാം",
+        "available": "സമയം ലഭ്യമാണ്",
+        "booked": "ബുക്ക് ചെയ്തു",
+    },
+    {
         "language": "hi-IN",
         "opening": "कल सुबह 10 बजे अपॉइंटमेंट चाहिए",
         "name": "मेरा नाम आरव शर्मा",

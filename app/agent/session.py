@@ -211,10 +211,7 @@ class AgentSession:
 
         day, availability = await self._find_open_day(resolution.date)
         if day is None:
-            if self.language == "en-IN":
-                message = str(availability.get("message") or self._t("no_open_day"))
-            else:
-                message = self._t("no_open_day")
+            message = self._t("no_open_day")
             self.call_log.agent_turn(message)
             self._finish(CallStatus.FAILED, message, "no_availability")
             self.state = AgentState.FAILED
