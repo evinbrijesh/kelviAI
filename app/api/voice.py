@@ -1,5 +1,8 @@
 import base64
+import hashlib
+import hmac
 import logging
+import re
 import urllib.parse
 from typing import Annotated
 
@@ -15,9 +18,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.admin.routes import get_session
-from app.bridge.audio_utils import AudioValidationError
+from app.bridge.audio_utils import MAX_AUDIO_BYTES, AudioValidationError
 from app.bridge.voice_session import VoiceSessionManager
-from app.config import AppConfig
+from app.config import AppConfig, Settings
 from app.llm.language import SUPPORTED_LANGUAGE_CODES
 from app.llm.registry import AdapterRegistry
 from app.providers.telephony import TwilioProvider
@@ -27,6 +30,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/voice", tags=["voice"])
 _manager = VoiceSessionManager()
 _twilio_provider = TwilioProvider()
+
+
+def verify_twilio_signature(
+    auth_token: str, url: str, params: dict[str, str], signature: str
+) -> bool:
+    """Verify inbound Twilio request signature using HMAC-SHA1."""
+    data = url + "".join(f"{k}{params[k]}" for k in sorted(params.keys()))
+    expected = base64.b64encode(
+        hmac.new(auth_token.encode("utf-8"), data.encode("utf-8"), hashlib.sha1).digest()
+    ).decode("utf-8")
+    return hmac.compare_digest(expected, signature)
+
 
 
 class VoiceStartRequest(BaseModel):
@@ -146,6 +161,17 @@ async def process_voice_turn(
     language: str | None = None,
 ) -> VoiceTurnResponse:
     """Process an audio turn using JSON with base64 audio or raw binary audio in request body."""
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            if int(content_length) > MAX_AUDIO_BYTES:
+                raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail=f"Audio payload exceeds maximum limit of {MAX_AUDIO_BYTES} bytes",
+                )
+        except ValueError:
+            pass
+
     voice_session = _manager.get(call_sid)
     if voice_session is None:
         raise HTTPException(
@@ -154,6 +180,7 @@ async def process_voice_turn(
         )
 
     content_type = request.headers.get("content-type", "")
+
     raw_audio: bytes | None = None
 
     if "application/json" in content_type:
@@ -175,6 +202,12 @@ async def process_voice_turn(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No audio payload provided in request",
+        )
+
+    if len(raw_audio) > MAX_AUDIO_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=f"Audio payload exceeds maximum limit of {MAX_AUDIO_BYTES} bytes",
         )
 
     try:
@@ -244,12 +277,30 @@ async def twilio_voice_webhook(
     body_bytes = await request.body()
     form_data = urllib.parse.parse_qs(body_bytes.decode("utf-8", errors="replace"))
 
+    settings = Settings()
+    if settings.twilio_auth_token:
+        signature = request.headers.get("X-Twilio-Signature", "")
+        flat_params = {k: v[0] for k, v in form_data.items()}
+        if not verify_twilio_signature(
+            settings.twilio_auth_token, str(request.url), flat_params, signature
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid Twilio signature",
+            )
+
     call_sid = form_data.get("CallSid", ["call-anon"])[0]
+    if not re.match(r"^[a-zA-Z0-9_\-]+$", call_sid):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid CallSid format",
+        )
+
     caller_phone = form_data.get("From", [""])[0]
     speech_result = form_data.get("SpeechResult", [None])[0]
 
     voice_session = _manager.get(call_sid)
-    action_url = f"/api/voice/webhook/twilio?CallSid={call_sid}"
+    action_url = f"/api/voice/webhook/twilio?CallSid={urllib.parse.quote(call_sid)}"
 
     if voice_session is None:
         # Initial call start

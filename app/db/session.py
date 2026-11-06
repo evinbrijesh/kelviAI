@@ -28,13 +28,15 @@ class Database:
         if self.url.startswith("postgresql"):
             # Without this a health check can block for minutes behind a dead proxy port.
             connect_args["connect_timeout"] = connect_timeout
-        self.engine: Engine = create_engine(
-            self.url,
-            pool_pre_ping=True,
-            pool_timeout=connect_timeout,
-            echo=echo,
-            connect_args=connect_args,
-        )
+        engine_kwargs: dict[str, Any] = {
+            "pool_pre_ping": True,
+            "echo": echo,
+            "connect_args": connect_args,
+        }
+        if not self.url.startswith("sqlite"):
+            engine_kwargs["pool_timeout"] = connect_timeout
+
+        self.engine: Engine = create_engine(self.url, **engine_kwargs)
         self.session_factory = sessionmaker(bind=self.engine, expire_on_commit=False)
 
     def create_schema(self) -> None:

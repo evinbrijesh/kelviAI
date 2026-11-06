@@ -9,7 +9,7 @@
 
 | Check | Result |
 |---|---|
-| `pytest` | 167 passed, 0 failed |
+| `pytest` | 174 passed, 0 failed |
 | `ruff check app tests` | All checks passed |
 | `mypy app/` | No issues across 40 source files |
 | `make rehearse` | [1/3] successful booking: PASS, [2/3] unavailable slot with alternative: PASS, [3/3] ambiguous time and hangup: PASS |
@@ -34,9 +34,18 @@ No Gnani API key was used in any of the above. All verification is fully offline
 
 ### Docs
 
-- `docs/demo-runbook.md` — updated test count from 112 to 167 in both the before-recording block and the backup demo script
-- `docs/demo-runbook.md` — freeze checklist updated with verified checkboxes
-- `docs/freeze-report-nov6.md` — this file
+- `docs/demo-runbook.md` — updated test count from 167 to 174 in before-recording, backup demo, and freeze checklist
+- `docs/freeze-report-nov6.md` — updated verification results
+
+### Day 7 Security Hardening Patch
+
+- **TwiML / XML Injection:** Added attribute quote escaping in `TwilioProvider` and regex validation on `CallSid`.
+- **Twilio Webhook Verification:** Added HMAC-SHA1 signature verification for `/api/voice/webhook/twilio`.
+- **IDOR Protection:** Restricted `cancel_booking` to verified caller phone numbers.
+- **Resource Limits & Memory Protection:** Added `MAX_AUDIO_BYTES` (10 MB) check on audio turns and TTL/LRU eviction in `VoiceSessionManager`.
+- **Admin API Key:** Optional bearer/header authentication on `/admin/*` via `ADMIN_API_KEY`.
+- **Container & Security Headers:** Non-root user in Dockerfile, bound Postgres port to `127.0.0.1`, and added security headers middleware.
+- **Test Suite:** Added 7 automated security tests in `test_security_review.py` (total 174 tests passing).
 
 ---
 

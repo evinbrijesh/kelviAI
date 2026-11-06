@@ -8,6 +8,8 @@ from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
+import secrets
+
 from app.admin.schemas import (
     AdminIndex,
     AdminStatus,
@@ -18,11 +20,26 @@ from app.admin.schemas import (
     ConfiguredTool,
     ResolvedDateTime,
 )
-from app.config import AppConfig
+from app.config import AppConfig, Settings
 from app.db.models import Booking, Call, CallEvent, Calendar, EventType
 from app.privacy import mask_phone
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+
+def verify_admin_access(request: Request) -> None:
+    settings = Settings()
+    if not settings.admin_api_key:
+        return
+    provided = request.headers.get("X-Admin-Key") or request.query_params.get("api_key")
+    if not provided or not secrets.compare_digest(provided, settings.admin_api_key):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin access requires a valid API key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(verify_admin_access)])
+
 
 ENVIRONMENT = "non-production"
 RECORDINGS = "disabled"

@@ -4,6 +4,10 @@ from xml.sax.saxutils import escape
 from app.providers.base import IncomingCall, TelephonyProvider
 
 
+def _escape_attr(value: str) -> str:
+    return escape(str(value or ""), entities={'"': "&quot;", "'": "&apos;"})
+
+
 class GenericProvider(TelephonyProvider):
     """Generic JSON telephony provider for REST and webhook integrations."""
 
@@ -61,14 +65,14 @@ class TwilioProvider(TelephonyProvider):
         xml_parts: list[str] = ['<?xml version="1.0" encoding="UTF-8"?>', "<Response>"]
 
         if audio_url:
-            content = f"<Play>{escape(audio_url)}</Play>"
+            content = f"<Play>{_escape_attr(audio_url)}</Play>"
         else:
-            content = f'<Say language="{escape(language)}">{escaped_text}</Say>'
+            content = f'<Say language="{_escape_attr(language)}">{escaped_text}</Say>'
 
         if listen_for_input and action_url:
             gather_tag = (
-                f'<Gather input="speech" action="{escape(action_url)}" '
-                f'method="POST" speechTimeout="auto" language="{escape(language)}">'
+                f'<Gather input="speech" action="{_escape_attr(action_url)}" '
+                f'method="POST" speechTimeout="auto" language="{_escape_attr(language)}">'
             )
             xml_parts.append(gather_tag)
             xml_parts.append(f"  {content}")
@@ -80,3 +84,4 @@ class TwilioProvider(TelephonyProvider):
 
         xml_parts.append("</Response>")
         return "\n".join(xml_parts)
+

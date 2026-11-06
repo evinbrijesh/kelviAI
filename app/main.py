@@ -1,8 +1,8 @@
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Response, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -61,6 +61,18 @@ app = FastAPI(title="VaaniKit", version="0.1.0", lifespan=lifespan)
 app.include_router(admin_router)
 app.include_router(voice_router)
 app.mount("/admin/static", StaticFiles(directory=STATIC_DIR), name="admin-static")
+
+
+@app.middleware("http")
+async def security_headers_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 
 
 @app.get("/", include_in_schema=False)

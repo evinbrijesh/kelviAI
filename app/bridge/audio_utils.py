@@ -61,13 +61,22 @@ def wrap_pcm_in_wav(
     return buffer.getvalue()
 
 
-def validate_audio_bytes(audio_bytes: bytes, min_bytes: int = 44) -> tuple[bool, str]:
+MAX_AUDIO_BYTES = 10 * 1024 * 1024  # 10 MB payload limit
+
+
+def validate_audio_bytes(
+    audio_bytes: bytes, min_bytes: int = 44, max_bytes: int = MAX_AUDIO_BYTES
+) -> tuple[bool, str]:
     """Validate audio bytes without raising, returning boolean and diagnostic reason."""
     if not audio_bytes:
         return False, "Audio payload is empty"
     if len(audio_bytes) < min_bytes:
         return False, (
             f"Payload size ({len(audio_bytes)} bytes) below threshold ({min_bytes} bytes)"
+        )
+    if len(audio_bytes) > max_bytes:
+        return False, (
+            f"Payload size ({len(audio_bytes)} bytes) exceeds maximum limit ({max_bytes} bytes)"
         )
 
     if audio_bytes[:4] == b"RIFF":

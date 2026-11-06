@@ -193,6 +193,16 @@ class BookingTools:
         if booking is None:
             return {"status": "not_found", "message": "No booking matches that reference."}
 
+        # Check caller authorization: only allow cancellation if phone matches
+        current_phone = (self.call.caller_phone if self.call else "").strip()
+        arg_phone = str(arguments.get("caller_phone") or "").strip()
+        auth_phone = current_phone or arg_phone
+        if auth_phone and booking.caller_phone and booking.caller_phone.strip() != auth_phone:
+            return {
+                "status": "unauthorized",
+                "message": "Cannot cancel booking belonging to another caller.",
+            }
+
         if booking.status == BookingStatus.CANCELLED:
             return {
                 "status": "already_cancelled",

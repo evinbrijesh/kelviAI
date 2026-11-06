@@ -17,7 +17,7 @@ or customer conversations are involved.
 ```bash
 git pull --ff-only
 make install
-make test          # 167 tests
+make test          # 174 tests
 make lint          # ruff + mypy
 make rehearse      # three-call local rehearsal, no network
 ```
@@ -55,7 +55,7 @@ Keep the cursor away from the **Live** toggle so the demo does not pause refresh
 
 1. **0:00–0:30 — Deterministic rehearsal.** Run `make rehearse` and show
    `[1/3] ... PASS`, `[2/3] ... PASS`, `[3/3] ... PASS`.
-2. **0:30–1:10 — Evidence.** Run `make test` and `make lint`; show 167 tests passing
+2. **0:30–1:10 — Evidence.** Run `make test` and `make lint`; show 174 tests passing
    and no lint or type errors.
 3. **1:10–2:00 — Architecture.** Walk the README diagram: FastAPI ingress, the
    explicit `AgentSession` state machine, the deterministic date resolver, the tool
@@ -81,11 +81,11 @@ open `/admin/ui` (and `#call-1` for the detail), set the widths above, and take
 full-window screenshots without browser chrome. Update the images if the seeded
 data or layout changes.
 
-## Freeze checklist — November 6
+## Freeze checklist — November 6–7
 
 Run from the exact commit that will be tagged:
 
-- [x] `make test`, `make lint`, and `make rehearse` pass. (167 tests, ruff + mypy clean, all 3 rehearsal scenarios pass)
+- [x] `make test`, `make lint`, and `make rehearse` pass. (174 tests, ruff + mypy clean, all 3 rehearsal scenarios pass)
 - [ ] Database initializes from a clean environment (`docker compose down -v` then up).
 - [x] `make simulate SCENARIO=appointment-malayalam` completes with one confirmed booking.
 - [ ] `/health` returns `ok` and the dashboard loads at the deployed or local URL.

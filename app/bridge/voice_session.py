@@ -168,10 +168,31 @@ class VoiceSession:
 
 
 class VoiceSessionManager:
-    """Manages active VoiceSession instances indexed by call SID."""
+    """Manages active VoiceSession instances indexed by call SID with TTL eviction."""
 
-    def __init__(self) -> None:
+    def __init__(self, ttl_seconds: float = 1800.0, max_sessions: int = 1000) -> None:
         self._sessions: dict[str, VoiceSession] = {}
+        self._last_accessed: dict[str, float] = {}
+        self.ttl_seconds = ttl_seconds
+        self.max_sessions = max_sessions
+
+    def _evict_expired(self) -> None:
+        now = time.time()
+        expired = [
+            sid
+            for sid, last_ts in self._last_accessed.items()
+            if now - last_ts > self.ttl_seconds
+        ]
+        for sid in expired:
+            self._sessions.pop(sid, None)
+            self._last_accessed.pop(sid, None)
+
+        if len(self._sessions) >= self.max_sessions:
+            oldest = sorted(self._last_accessed.items(), key=lambda x: x[1])
+            to_remove = oldest[: max(1, len(oldest) // 10)]
+            for sid, _ in to_remove:
+                self._sessions.pop(sid, None)
+                self._last_accessed.pop(sid, None)
 
     def create(
         self,
@@ -185,6 +206,7 @@ class VoiceSessionManager:
         caller_phone: str = "",
         channel: str = "voice_api",
     ) -> VoiceSession:
+        self._evict_expired()
         agent_session = AgentSession(
             session=session,
             config=config,
@@ -200,13 +222,21 @@ class VoiceSessionManager:
             default_language=config.model.stt.language,
         )
         self._sessions[voice_session.call_sid] = voice_session
+        self._last_accessed[voice_session.call_sid] = time.time()
         return voice_session
 
     def get(self, call_sid: str) -> VoiceSession | None:
-        return self._sessions.get(call_sid)
+        self._evict_expired()
+        voice_session = self._sessions.get(call_sid)
+        if voice_session is not None:
+            self._last_accessed[call_sid] = time.time()
+        return voice_session
 
     def remove(self, call_sid: str) -> VoiceSession | None:
+        self._last_accessed.pop(call_sid, None)
         return self._sessions.pop(call_sid, None)
 
     def active_count(self) -> int:
+        self._evict_expired()
         return len(self._sessions)
+

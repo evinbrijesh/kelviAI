@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://vaanikit:vaanikit@localhost:5432/vaanikit"
     agent_config_path: str = ""
     seed_demo_data: bool = True
+    twilio_auth_token: str = ""
+    admin_api_key: str = ""
+
 
 
 def _section(raw: dict[str, Any], name: str) -> dict[str, Any]:
