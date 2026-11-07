@@ -98,6 +98,7 @@ Live verification: only Malayalam was exercised against the Gnani API (November 
 | Admin page explains what happened | Verified by `test_admin.py` |
 | Phone numbers are masked | Verified by `test_privacy.py` |
 | Tool registry rejects undeclared tools | Verified by `test_tools.py` |
-| Tests cover all required areas | 167 tests, all pass |
+| Tests cover all required areas | 174 tests, all pass |
 | No secrets or private data in Git | Verified by `test_security_review.py` |
 | README setup works from clean environment | Reviewed and accurate |
+
