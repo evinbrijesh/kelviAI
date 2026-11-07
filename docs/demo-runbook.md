@@ -86,10 +86,10 @@ data or layout changes.
 Run from the exact commit that will be tagged:
 
 - [x] `make test`, `make lint`, and `make rehearse` pass. (174 tests, ruff + mypy clean, all 3 rehearsal scenarios pass)
-- [ ] Database initializes from a clean environment (`docker compose down -v` then up).
+- [x] Database initializes from a clean environment (`docker compose down -v` then up).
 - [x] `make simulate SCENARIO=appointment-malayalam` completes with one confirmed booking.
-- [ ] `/health` returns `ok` and the dashboard loads at the deployed or local URL.
-- [ ] `/admin/status` reports masking enabled and recordings disabled.
+- [x] `/health` returns `ok` and the dashboard loads at the deployed or local URL.
+- [x] `/admin/status` reports masking enabled and recordings disabled.
 - [x] No secrets or real data are staged (`tests/test_security_review.py` covers the checklist).
 - [ ] Tag `v0.1.0-hackathon` on the release commit.
 - [ ] Create the GitHub release from that tag and record the demo from the tag, not a working tree.
