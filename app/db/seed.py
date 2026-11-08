@@ -55,6 +55,7 @@ def seed_demo_data(session: Session) -> bool:
     booking_date = booking_day.isoformat()
     slot_10 = _slot(booking_day, 10, 0)
     slot_1030 = _slot(booking_day, 10, 30)
+    slot_12 = _slot(booking_day, 12, 0)
 
     booked_call = Call(
         call_sid="demo-call-0001",
@@ -99,7 +100,17 @@ def seed_demo_data(session: Session) -> bool:
         ended_at=_at(-1, 15, 2),
         summary="Caller asked about insurance coverage and was transferred to a human agent.",
     )
-    session.add_all([booked_call, conflict_call, failed_call, transferred_call])
+    hindi_call = Call(
+        call_sid="demo-call-0005",
+        caller_phone="+919000000005",
+        language="hindi",
+        channel="simulation",
+        status=CallStatus.COMPLETED,
+        started_at=_at(-1, 13, 0),
+        ended_at=_at(-1, 13, 4),
+        summary=f"Priya Sharma booked a 30 minute consultation on {booking_date} at 12:00.",
+    )
+    session.add_all([booked_call, conflict_call, failed_call, transferred_call, hindi_call])
     session.flush()
 
     session.add_all(
@@ -381,6 +392,111 @@ def seed_demo_data(session: Session) -> bool:
                 event_type=EventType.CALL_ENDED,
                 payload={"outcome": "transferred"},
             ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=1,
+                event_type=EventType.CALL_STARTED,
+                payload={"channel": "simulation", "language": "hindi"},
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=2,
+                event_type=EventType.USER_TURN,
+                payload={"text": "कल दोपहर 12 बजे अपॉइंटमेंट चाहिए"},
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=3,
+                event_type=EventType.DATE_RESOLVED,
+                payload={
+                    "date": booking_date,
+                    "time": "12:00",
+                    "timezone": "Asia/Kolkata",
+                    "confidence": 0.93,
+                    "explanation": "Detected tomorrow (कल); Detected time '12 बजे'",
+                },
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=4,
+                event_type=EventType.TOOL_CALL,
+                tool_name="check_availability",
+                payload={"arguments": {"date": booking_date, "time_slot": "12:00"}},
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=5,
+                event_type=EventType.TOOL_RESULT,
+                tool_name="check_availability",
+                payload={
+                    "status": "ok",
+                    "clinic": DEMO_CLINIC_NAME,
+                    "date": booking_date,
+                    "timezone": "Asia/Kolkata",
+                    "available": _available(),
+                    "booked": [],
+                },
+                latency_ms=10,
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=6,
+                event_type=EventType.AGENT_TURN,
+                payload={"text": f"{booking_date} को 12:00 उपलब्ध है।"},
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=7,
+                event_type=EventType.USER_TURN,
+                payload={"text": "मेरा नाम प्रिया शर्मा है।"},
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=8,
+                event_type=EventType.AGENT_TURN,
+                payload={"text": "प्रिया शर्मा, 12:00 की पुष्टि करें। क्या मैं बुक कर दूं?"},
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=9,
+                event_type=EventType.USER_TURN,
+                payload={"text": "हाँ, बुक कर दीजिए।"},
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=10,
+                event_type=EventType.TOOL_CALL,
+                tool_name="book_slot",
+                payload={
+                    "arguments": {
+                        "caller_name": "Priya Sharma",
+                        "date": booking_date,
+                        "time": "12:00",
+                    }
+                },
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=11,
+                event_type=EventType.TOOL_RESULT,
+                tool_name="book_slot",
+                payload={
+                    "status": "confirmed",
+                    "booking_id": "3",
+                    "clinic": DEMO_CLINIC_NAME,
+                    "patient_name": "Priya Sharma",
+                    "slot_start": slot_12.isoformat(),
+                    "slot_end": _slot(booking_day, 12, 30).isoformat(),
+                    "timezone": "Asia/Kolkata",
+                },
+                latency_ms=19,
+            ),
+            CallEvent(
+                call_id=hindi_call.id,
+                seq=12,
+                event_type=EventType.CALL_ENDED,
+                payload={"outcome": "booked"},
+            ),
         ]
     )
 
@@ -406,8 +522,18 @@ def seed_demo_data(session: Session) -> bool:
                 status=BookingStatus.CONFIRMED,
                 notes="Synthetic demo booking",
             ),
+            Booking(
+                calendar_id=calendar.id,
+                call_id=hindi_call.id,
+                patient_name="Priya Sharma",
+                caller_phone="+919000000005",
+                slot_start=slot_12,
+                slot_end=_slot(booking_day, 12, 30),
+                status=BookingStatus.CONFIRMED,
+                notes="Synthetic demo booking",
+            ),
         ]
     )
 
-    logger.info("Seeded synthetic clinic, four demo calls, and two demo bookings")
+    logger.info("Seeded synthetic clinic, five demo calls, and three demo bookings")
     return True

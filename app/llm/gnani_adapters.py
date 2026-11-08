@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any
 
 import httpx
@@ -5,6 +6,31 @@ import httpx
 from app.config import GnaniConfig, STTConfig, TTSConfig
 from app.llm.interfaces import STTAdapter, STTMode, STTResult, TTSAdapter, TTSMode, TTSResult
 from app.llm.language import DEFAULT_LANGUAGE, default_voice, normalize_language
+
+_RATE_LIMIT_STATUS = 429
+_MAX_ATTEMPTS = 3
+_BASE_DELAY_SECONDS = 0.5
+_MAX_DELAY_SECONDS = 4.0
+
+
+def _retry_delay(response: httpx.Response, attempt: int) -> float:
+    retry_after = response.headers.get("Retry-After", "").strip()
+    if retry_after.isdigit():
+        return float(min(float(retry_after), _MAX_DELAY_SECONDS))
+    return float(min(_BASE_DELAY_SECONDS * (2**attempt), _MAX_DELAY_SECONDS))
+
+
+async def _post_with_retry(
+    client: httpx.AsyncClient, url: str, **kwargs: Any
+) -> httpx.Response:
+    """Retry a request a bounded number of times when Gnani answers 429."""
+    response = await client.post(url, **kwargs)
+    attempts = 1
+    while response.status_code == _RATE_LIMIT_STATUS and attempts < _MAX_ATTEMPTS:
+        await asyncio.sleep(_retry_delay(response, attempts - 1))
+        attempts += 1
+        response = await client.post(url, **kwargs)
+    return response
 
 
 class GnaniSTTAdapter(STTAdapter):
@@ -31,7 +57,7 @@ class GnaniSTTAdapter(STTAdapter):
             "language_code": kwargs.get("language", self.stt_config.language),
         }
 
-        response = await self.client.post("/stt/v3", files=files, data=data)
+        response = await _post_with_retry(self.client, "/stt/v3", files=files, data=data)
         response.raise_for_status()
 
         result = response.json()
@@ -57,6 +83,8 @@ class GnaniTTSAdapter(TTSAdapter):
             headers={"X-API-Key-ID": config.api_key_id},
             timeout=30.0,
         )
+        # Timbre allows one active request per key, so calls queue instead of racing.
+        self._request_lock = asyncio.Lock()
 
     async def synthesize(
         self, text: str, mode: TTSMode = TTSMode.REST, **kwargs: Any
@@ -90,7 +118,10 @@ class GnaniTTSAdapter(TTSAdapter):
             },
         }
 
-        response = await self.client.post("/api/v1/tts/inference", json=data)
+        async with self._request_lock:
+            response = await _post_with_retry(
+                self.client, "/api/v1/tts/inference", json=data
+            )
         response.raise_for_status()
 
         return TTSResult(

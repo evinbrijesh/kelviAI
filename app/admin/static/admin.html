@@ -384,7 +384,25 @@
   tbody tr:last-child td { border-bottom: 0; }
 
   td.numeric { font-variant-numeric: tabular-nums; white-space: nowrap; }
-  td.summary { max-width: 360px; color: var(--muted); }
+  td.summary { color: var(--muted); overflow-wrap: anywhere; }
+
+  @media (min-width: 861px) {
+    .calls-table { table-layout: fixed; }
+    .calls-table th:nth-child(1), .calls-table td:nth-child(1) { width: 190px; }
+    .calls-table th:nth-child(2), .calls-table td:nth-child(2) { width: 126px; }
+    .calls-table th:nth-child(3), .calls-table td:nth-child(3) { width: 156px; }
+    .calls-table th:nth-child(4), .calls-table td:nth-child(4) { width: 124px; }
+    .calls-table th:nth-child(5), .calls-table td:nth-child(5) { width: 124px; }
+    .calls-table th:nth-child(6), .calls-table td:nth-child(6) { width: 90px; }
+    .calls-table th:nth-child(8), .calls-table td:nth-child(8) { width: 68px; }
+
+    .bookings-table { table-layout: fixed; }
+    .bookings-table th:nth-child(1), .bookings-table td:nth-child(1) { width: 190px; }
+    .bookings-table th:nth-child(2), .bookings-table td:nth-child(2) { width: 150px; }
+    .bookings-table th:nth-child(3), .bookings-table td:nth-child(3) { width: 130px; }
+    .bookings-table th:nth-child(5), .bookings-table td:nth-child(5) { width: 120px; }
+    .bookings-table th:nth-child(6), .bookings-table td:nth-child(6) { width: 140px; }
+  }
 
   .mono { font-family: var(--mono); font-size: 12.5px; }
   td.mono { color: var(--muted); }
@@ -544,10 +562,42 @@
     letter-spacing: 0.04em;
   }
 
+  @media (max-width: 860px) {
+    .stack-table { table-layout: auto; }
+    .stack-table thead { display: none; }
+    .stack-table, .stack-table tbody, .stack-table tr, .stack-table td {
+      display: block;
+      width: auto;
+    }
+    .stack-table tr { padding: 12px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+    .stack-table tbody tr:last-child { border-bottom: 0; }
+    .stack-table td {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 8px;
+      padding: 3px 0;
+      border: 0;
+    }
+    .stack-table td::before {
+      content: attr(data-label);
+      color: var(--faint);
+      font: 600 10px/1.4 var(--mono);
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+    .stack-table td:last-child { display: block; padding-top: 8px; }
+    .stack-table td:last-child::before { content: none; }
+    .stack-table td .badge { justify-self: start; }
+  }
+
+  @media (max-width: 960px) {
+    .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .hero::before { inset: -32px -24px; }
+  }
+
   @media (max-width: 760px) {
     .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .grid-2 { grid-template-columns: minmax(0, 1fr); }
-    td.summary { max-width: 220px; }
     .hero::before { inset: -28px -16px; }
   }
 </style>
@@ -568,7 +618,7 @@
 
 <main class="wrap">
   <header class="hero">
-    <p class="eyebrow">Malayalam appointment line</p>
+    <p class="eyebrow">Multilingual appointment line</p>
     <h1>Call operations</h1>
     <p class="notice">Synthetic demo data only. Phone numbers are masked in every response. This page is not production secure.</p>
   </header>
@@ -595,7 +645,7 @@
   </section>
 
   <section id="detail" hidden>
-    <button class="ghost back" id="back">← All calls</button>
+    <button class="ghost back" id="back">All calls</button>
     <div id="detail-status" class="status" hidden></div>
     <div id="detail-body"></div>
   </section>
@@ -671,6 +721,34 @@
     return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
   }
 
+  const LANGUAGES = {
+    "bn-in": ["Bengali", "bn-IN"],
+    "en-in": ["English", "en-IN"],
+    "gu-in": ["Gujarati", "gu-IN"],
+    "hi-in": ["Hindi", "hi-IN"],
+    "kn-in": ["Kannada", "kn-IN"],
+    "ml-in": ["Malayalam", "ml-IN"],
+    "mr-in": ["Marathi", "mr-IN"],
+    "pa-in": ["Punjabi", "pa-IN"],
+    "ta-in": ["Tamil", "ta-IN"],
+    "te-in": ["Telugu", "te-IN"],
+    bengali: ["Bengali", "bn-IN"],
+    english: ["English", "en-IN"],
+    gujarati: ["Gujarati", "gu-IN"],
+    hindi: ["Hindi", "hi-IN"],
+    kannada: ["Kannada", "kn-IN"],
+    malayalam: ["Malayalam", "ml-IN"],
+    marathi: ["Marathi", "mr-IN"],
+    punjabi: ["Punjabi", "pa-IN"],
+    tamil: ["Tamil", "ta-IN"],
+    telugu: ["Telugu", "te-IN"],
+  };
+
+  function formatLanguage(value) {
+    const entry = LANGUAGES[String(value || "").trim().toLowerCase()];
+    return entry ? `${entry[0]} (${entry[1]})` : (value || "-");
+  }
+
   function statusTone(status) {
     if (status === "completed") return "ok";
     if (status === "failed") return "error";
@@ -740,13 +818,13 @@
 
     const body = el("tbody", {}, ...state.calls.map((call) =>
       el("tr", {},
-        el("td", { class: "numeric", text: formatDateTime(call.started_at) }),
-        el("td", { class: "mono", text: call.caller_phone }),
-        el("td", { text: call.language }),
-        el("td", {}, badge(call.status, statusTone(call.status))),
-        el("td", {}, call.outcome ? badge(call.outcome, "info") : el("span", { class: "muted", text: "-" })),
-        el("td", { class: "numeric", text: call.booking_count ? String(call.booking_count) : "-" }),
-        el("td", { class: "summary", text: call.summary || "-" }),
+        el("td", { class: "numeric", dataset: { label: "Started" }, text: formatDateTime(call.started_at) }),
+        el("td", { class: "mono", dataset: { label: "Caller" }, text: call.caller_phone }),
+        el("td", { dataset: { label: "Language" }, text: formatLanguage(call.language) }),
+        el("td", { dataset: { label: "Status" } }, badge(call.status, statusTone(call.status))),
+        el("td", { dataset: { label: "Outcome" } }, call.outcome ? badge(call.outcome, "info") : el("span", { class: "muted", text: "-" })),
+        el("td", { class: "numeric", dataset: { label: "Bookings" }, text: call.booking_count ? String(call.booking_count) : "-" }),
+        el("td", { class: "summary", dataset: { label: "Summary" }, text: call.summary || "-" }),
         el("td", {}, el("button", {
           class: "link",
           text: "View",
@@ -757,7 +835,7 @@
     ));
 
     dom.listBody.replaceChildren(el("div", { class: "table-wrap" },
-      el("table", {},
+      el("table", { class: "stack-table calls-table" },
         el("thead", {}, el("tr", {},
           ...["Started", "Caller", "Language", "Status", "Outcome", "Bookings", "Summary", ""]
             .map((label) => el("th", { text: label, scope: "col" })),
@@ -778,11 +856,11 @@
 
     const body = el("tbody", {}, ...state.bookings.map((booking) =>
       el("tr", {},
-        el("td", { class: "numeric", text: formatDateTime(booking.slot_start) }),
-        el("td", { text: booking.patient_name }),
-        el("td", { class: "mono", text: booking.caller_phone }),
-        el("td", { text: booking.clinic }),
-        el("td", {}, badge(booking.status, booking.status === "confirmed" ? "ok" : "warn")),
+        el("td", { class: "numeric", dataset: { label: "Slot" }, text: formatDateTime(booking.slot_start) }),
+        el("td", { dataset: { label: "Patient" }, text: booking.patient_name }),
+        el("td", { class: "mono", dataset: { label: "Caller" }, text: booking.caller_phone }),
+        el("td", { dataset: { label: "Clinic" }, text: booking.clinic }),
+        el("td", { dataset: { label: "Status" } }, badge(booking.status, booking.status === "confirmed" ? "ok" : "warn")),
         el("td", {}, booking.call_id
           ? el("button", {
               class: "link mono",
@@ -795,7 +873,7 @@
     ));
 
     dom.listBody.replaceChildren(el("div", { class: "table-wrap" },
-      el("table", {},
+      el("table", { class: "stack-table bookings-table" },
         el("thead", {}, el("tr", {},
           ...["Slot", "Patient", "Caller", "Clinic", "Status", "Call"]
             .map((label) => el("th", { text: label, scope: "col" })),
@@ -910,18 +988,18 @@
     return el("section", { class: "card" },
       el("h3", { text: "Bookings" }),
       el("div", { class: "table-wrap" },
-        el("table", {},
+        el("table", { class: "stack-table" },
           el("thead", {}, el("tr", {},
             ...["Slot", "Patient", "Caller", "Status", "Reference"]
               .map((label) => el("th", { text: label, scope: "col" })),
           )),
           el("tbody", {}, ...detail.bookings.map((booking) =>
             el("tr", {},
-              el("td", { class: "numeric", text: formatDateTime(booking.slot_start) }),
-              el("td", { text: booking.patient_name }),
-              el("td", { class: "mono", text: booking.caller_phone }),
-              el("td", {}, badge(booking.status, booking.status === "confirmed" ? "ok" : "warn")),
-              el("td", { class: "mono", text: `#${booking.id}` }),
+            el("td", { class: "numeric", dataset: { label: "Slot" }, text: formatDateTime(booking.slot_start) }),
+            el("td", { dataset: { label: "Patient" }, text: booking.patient_name }),
+            el("td", { class: "mono", dataset: { label: "Caller" }, text: booking.caller_phone }),
+            el("td", { dataset: { label: "Status" } }, badge(booking.status, booking.status === "confirmed" ? "ok" : "warn")),
+            el("td", { class: "mono", dataset: { label: "Reference" }, text: `#${booking.id}` }),
             ),
           )),
         ),
@@ -988,7 +1066,7 @@
           ),
           el("dl", { class: "meta" },
             metaItem("Caller", detail.caller_phone, true),
-            metaItem("Language", detail.language),
+            metaItem("Language", formatLanguage(detail.language)),
             metaItem("Channel", detail.channel),
             metaItem("Bookings", String(detail.booking_count)),
           ),

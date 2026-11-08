@@ -43,7 +43,7 @@ async def test_scenario_books_exactly_one_slot(agent_config: Path) -> None:
         assert call.status == "completed"
         assert call.summary is not None
         assert "reference" in call.summary
-        assert confirmed_bookings(database) == 3
+        assert confirmed_bookings(database) == 4
 
         with database.session() as session:
             bookings = list(
@@ -91,6 +91,6 @@ async def test_scenario_is_repeatable(agent_config: Path) -> None:
     database = Database(load_config(agent_config).database.url)
     try:
         assert len(simulation_calls(database)) == 2
-        assert confirmed_bookings(database) == 4
+        assert confirmed_bookings(database) == 5
     finally:
         database.dispose()

@@ -67,6 +67,10 @@ VaaniKit is designed around documented, verifiable interfaces with clean fallbac
   * Rather than relying on unverified external LLM parameters, colloquial temporal phrases in every supported language (e.g. *"നാളെ രാവിലെ 10 മണിക്ക്"*, *"कल सुबह 10 बजे"*, *"நாளை காலை 10 மணிக்கு"*) are parsed by a deterministic resolver grounded in Indian Standard Time (`Asia/Kolkata`).
   * Handles relative days, morning/afternoon/evening/night qualifiers, o'clock markers, half-hours, native-script digits, ISO and `DD/MM/YYYY` dates, and structured times.
   * Emits structured ISO dates, normalized times, confidence scores, and diagnostic explanations.
+* **Code-mixed booking phrases:**
+  * Handles focused Hinglish, Manglish, Tanglish and Benglish patterns, including `kal subah 10 baje`, `naale raavile 10 mani`, `naalai kaalai 10 mani` and `kal shokal 10 tay`.
+  * Recognizes romanized name prefixes and confirmations. Negations take priority, so `don't book`, `nahi book karo` and `book venda` do not create a booking.
+  * Native script and provider language hints retain priority. This is phrase-based parsing, not unrestricted multilingual understanding.
 * **Warp & Evon Stubs:**
   * Modular stubs exist in `app/llm/warp_stubs.py` and `app/llm/evon_stub.py`. Because Warp and Evon lack live documentation, the system defaults to Path B (verified Gnani Speech APIs + deterministic resolver) without brittle undocumented assumptions.
 
@@ -200,9 +204,9 @@ docker compose up -d --wait db
 .venv/Scripts/python.exe -m app.scenarios.appointment_malayalam
 ```
 
-The app creates its tables on startup and seeds a fictional clinic, four demo calls
-(booked, conflict resolved, unresolved, transferred), and two confirmed demo bookings
-the first time it runs against an empty database.
+The app creates its tables on startup and seeds a fictional clinic, five demo calls
+(booked, conflict resolved, unresolved, transferred, and a Hindi call), plus three
+confirmed demo bookings the first time it runs against an empty database.
 
 ---
 
@@ -303,6 +307,29 @@ visible (pause with the **Live** toggle, or press **Refresh** for an immediate l
 
 ---
 
+## Browser voice demo (Stage 2)
+
+Open `/demo` on the running local server. The Stage 1 dashboard remains at `/admin/ui`.
+
+1. Press **Start demo call** and listen to the Malayalam greeting.
+2. Press **Record your turn**, speak a date and time, then **Send this turn**.
+3. Give a fictional name, check the spoken date and time, and confirm or decline.
+4. Inspect the transcript and booking reference, then open the call dashboard.
+
+The browser captures mono PCM with AudioWorklet and sends 16 kHz, 16-bit WAV to
+Prisma, not Web Speech dictation. Turns auto-send at 25 seconds, below the REST
+provider limit. End call discards unsent audio and releases the microphone.
+Microphone audio is held in memory, not saved as a recording; transcripts and
+synthetic bookings are persisted. Use localhost or HTTPS in a current browser.
+If autoplay is blocked, use the reply's audio controls. After a failed or timed-out
+turn, end the session instead of resending a potentially processed confirmation.
+
+This is a non-production demo, not an open public service. Do not enter real
+patient details or expose the unauthenticated voice API to the internet. Record
+Stage 1 before exercising voice calls against the same database: new calls and
+bookings will change the dashboard counts. Later videos can show Stage 2; nominate
+the final public post when submitting the contest entry.
+
 ## Voice API & Telephony Ingress
 
 The Voice API provides REST and telephony webhook endpoints for live calls:
@@ -373,7 +400,7 @@ Unknown or malformed sections fail startup with a safe `ConfigError` instead of 
 VaaniKit includes a test suite covering database isolation, concurrent slot booking races, security audits, admin routes, and Gnani adapters:
 
 ```bash
-make test     # pytest (166 unit & integration tests)
+make test     # pytest (318 unit & integration tests)
 make lint     # ruff + mypy (0 errors across 40 source files)
 ```
 

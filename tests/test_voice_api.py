@@ -32,6 +32,23 @@ class MockTTS(TTSAdapter):
 
 
 @pytest.mark.asyncio
+async def test_browser_voice_demo_is_separate_from_admin(client: AsyncClient) -> None:
+    response = await client.get("/demo")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "Talk to VaaniKit" in response.text
+    assert "/admin/static/voice-demo.js" in response.text
+    assert "Use fictional names only" in response.text
+    assert "Non-production demo" in response.text
+    assert "api_key_id" not in response.text
+
+    root = await client.get("/")
+    assert root.headers["location"] == "/admin/ui"
+    for asset in ("voice-demo.js", "voice-capture.js"):
+        assert (await client.get(f"/admin/static/{asset}")).status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_voice_status_endpoint(client: AsyncClient) -> None:
     response = await client.get("/api/voice/status")
     assert response.status_code == 200
@@ -102,6 +119,45 @@ async def test_voice_session_lifecycle_and_turn(
         json={"audio_base64": wav_b64},
     )
     assert turn_again.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_browser_voice_booking_uses_no_phone_number(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stt = MockSTT("कल सुबह 10 बजे appointment चाहिए")
+    registry = app.state.registry
+    monkeypatch.setattr(registry, "get_stt_adapter", lambda: stt)
+    monkeypatch.setattr(registry, "get_tts_adapter", lambda: MockTTS())
+    start = await client.post("/api/voice/session/start", json={"channel": "browser_demo"})
+    assert start.status_code == 200
+    sid = start.json()["call_sid"]
+    audio = wrap_pcm_in_wav(b"\x00\x00" * 320, sample_rate=16000)
+
+    for text, state in (
+        ("कल सुबह 10 बजे appointment चाहिए", "awaiting_name"),
+        ("My name is Asha Demo", "awaiting_confirmation"),
+        ("Yes, confirm", "completed"),
+    ):
+        stt.text = text
+        response = await client.post(
+            f"/api/voice/session/{sid}/turn",
+            content=audio,
+            headers={"content-type": "audio/wav"},
+        )
+        assert response.status_code == 200
+        assert response.json()["state"] == state
+
+    booking_id = response.json()["booking_id"]
+    assert booking_id is not None
+    assert response.json()["is_terminal"]
+    bookings = (await client.get("/admin/bookings")).json()
+    booking = next(item for item in bookings if str(item["id"]) == booking_id)
+    assert booking["patient_name"] == "Asha Demo"
+    assert booking["caller_phone"] == "***"
+    assert booking["status"] == "confirmed"
+    assert (await client.post(f"/api/voice/session/{sid}/hangup")).status_code == 200
+    assert (await client.get(f"/api/voice/session/{sid}/audio")).status_code == 404
 
 
 @pytest.mark.asyncio

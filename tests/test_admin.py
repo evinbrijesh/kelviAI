@@ -17,12 +17,13 @@ async def test_admin_calls_are_masked(client: AsyncClient) -> None:
     response = await client.get("/admin/calls")
     assert response.status_code == 200
     calls = response.json()
-    assert len(calls) == 4
+    assert len(calls) == 5
     assert {call["caller_phone"] for call in calls} == {
         "+********0001",
         "+********0002",
         "+********0003",
         "+********0004",
+        "+********0005",
     }
     assert calls[0]["started_at"] >= calls[-1]["started_at"]
 
@@ -39,6 +40,9 @@ async def test_admin_calls_report_outcome_and_booking_count(client: AsyncClient)
     assert calls["demo-call-0003"]["outcome"] == "abandoned"
     assert calls["demo-call-0003"]["booking_count"] == 0
     assert calls["demo-call-0004"]["outcome"] == "transferred"
+    assert calls["demo-call-0005"]["language"] == "hindi"
+    assert calls["demo-call-0005"]["outcome"] == "booked"
+    assert calls["demo-call-0005"]["booking_count"] == 1
 
 
 @pytest.mark.asyncio
@@ -46,12 +50,16 @@ async def test_admin_bookings_are_masked(client: AsyncClient) -> None:
     response = await client.get("/admin/bookings")
     assert response.status_code == 200
     bookings = response.json()
-    assert len(bookings) == 2
+    assert len(bookings) == 3
     assert all("*" in booking["caller_phone"] for booking in bookings)
     assert all(booking["status"] == "confirmed" for booking in bookings)
     assert all(booking["clinic"].startswith("Nila Family Clinic") for booking in bookings)
     assert all(booking["call_sid"] for booking in bookings)
-    assert [booking["patient_name"] for booking in bookings] == ["Anjali Menon", "Rahul Nair"]
+    assert [booking["patient_name"] for booking in bookings] == [
+        "Anjali Menon",
+        "Rahul Nair",
+        "Priya Sharma",
+    ]
 
 
 @pytest.mark.asyncio
@@ -95,6 +103,33 @@ async def test_admin_call_detail_has_ordered_events_and_resolution(client: Async
 
 
 @pytest.mark.asyncio
+async def test_admin_hindi_call_keeps_localized_turns_and_booking(client: AsyncClient) -> None:
+    response = await client.get("/admin/calls/5")
+    assert response.status_code == 200
+    detail = response.json()
+
+    assert detail["call_sid"] == "demo-call-0005"
+    assert detail["language"] == "hindi"
+    assert detail["resolved"]["time"] == "12:00"
+
+    user_turns = [
+        event["payload"]["text"]
+        for event in detail["events"]
+        if event["event_type"] == "user_turn"
+    ]
+    agent_turns = [
+        event["payload"]["text"]
+        for event in detail["events"]
+        if event["event_type"] == "agent_turn"
+    ]
+    assert any("अपॉइंटमेंट" in text for text in user_turns)
+    assert any("उपलब्ध" in text for text in agent_turns)
+
+    assert len(detail["bookings"]) == 1
+    assert detail["bookings"][0]["patient_name"] == "Priya Sharma"
+
+
+@pytest.mark.asyncio
 async def test_admin_failed_call_detail_shows_error(client: AsyncClient) -> None:
     response = await client.get("/admin/calls/3")
     assert response.status_code == 200
@@ -117,8 +152,8 @@ async def test_admin_status_counts(client: AsyncClient) -> None:
     response = await client.get("/admin/status")
     assert response.status_code == 200
     status = response.json()
-    assert status["calls"] == 4
-    assert status["bookings"] == 2
+    assert status["calls"] == 5
+    assert status["bookings"] == 3
     assert status["calendars"] == 1
     assert status["phone_masking"] == "enabled"
     assert status["recordings"] == "disabled"

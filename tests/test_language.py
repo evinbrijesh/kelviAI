@@ -28,6 +28,10 @@ from app.llm.language import (
         ("gujarati", "gu-IN"),
         ("punjabi", "pa-IN"),
         ("english", "en-IN"),
+        ("hinglish", "hi-IN"),
+        ("Manglish", "ml-IN"),
+        ("tanglish", "ta-IN"),
+        ("benglish", "bn-IN"),
         ("indic-auto", None),
         ("auto", None),
         ("", None),
@@ -76,3 +80,48 @@ def test_supported_codes_and_voices_cover_the_same_languages() -> None:
     assert default_voice("ml-IN") == "Reshma"
     assert default_voice("hi-IN") == "Nalini"
     assert default_voice("unknown") is None
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("kal subah 10 baje appointment please", "hi-IN"),
+        ("kal shaam saadhe paanch baje", "hi-IN"),
+        ("naale raavile 10 mani appointment please", "ml-IN"),
+        ("naale raavile pathara mani", "ml-IN"),
+        ("naale at 10 am", "ml-IN"),
+        ("naalai kaalai 10 mani appointment please", "ta-IN"),
+        ("naalai kaalai pathu mani arai", "ta-IN"),
+        ("kal shokal 10 tay appointment please", "bn-IN"),
+        ("kal shokal sare dosh tay", "bn-IN"),
+        ("MERA NAAM Aarav hai", "hi-IN"),
+        ("ente peru Anjali aanu", "ml-IN"),
+        ("ente per Anjali", "ml-IN"),
+        ("en peyar Meera", "ta-IN"),
+        ("amar naam Riya", "bn-IN"),
+        ("kal", "en-IN"),
+        ("Kal Rao", "en-IN"),
+        ("Subah", "en-IN"),
+        ("Mani", "en-IN"),
+        ("book a callback in the calendar", "en-IN"),
+        ("please confirm my booking", "en-IN"),
+        ("shamrock and nightingale", "en-IN"),
+        ("email ameranaam tomorrow", "en-IN"),
+        ("xkal subah10 bajex", "en-IN"),
+        ("calendar shokal10 tayler", "en-IN"),
+        ("naale raavile 10 mani, நன்றி", "ta-IN"),
+        ("kal subah 10 baje, നന്ദി", "ml-IN"),
+    ],
+)
+def test_detect_narrow_code_mixed_phrases(text: str, expected: str) -> None:
+    assert detect_language(text) == expected
+
+
+@pytest.mark.parametrize("hint", ["ml-IN", "en-IN", "ta-IN", "bn-IN"])
+def test_provider_hint_overrides_romanized_detection(hint: str) -> None:
+    assert resolve_language("kal subah 10 baje", hint=hint) == hint
+
+
+def test_ambiguous_kal_does_not_select_hindi_or_bengali() -> None:
+    assert detect_language("kal", default="hi-IN") == "en-IN"
+    assert resolve_language("kal", hint="indic-auto") == "en-IN"

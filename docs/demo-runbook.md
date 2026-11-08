@@ -17,7 +17,7 @@ or customer conversations are involved.
 ```bash
 git pull --ff-only
 make install
-make test          # 174 tests
+make test          # 318 tests
 make lint          # ruff + mypy
 make rehearse      # three-call local rehearsal, no network
 ```
@@ -55,7 +55,7 @@ Keep the cursor away from the **Live** toggle so the demo does not pause refresh
 
 1. **0:00–0:30 — Deterministic rehearsal.** Run `make rehearse` and show
    `[1/3] ... PASS`, `[2/3] ... PASS`, `[3/3] ... PASS`.
-2. **0:30–1:10 — Evidence.** Run `make test` and `make lint`; show 174 tests passing
+2. **0:30–1:10 — Evidence.** Run `make test` and `make lint`; show 318 tests passing
    and no lint or type errors.
 3. **1:10–2:00 — Architecture.** Walk the README diagram: FastAPI ingress, the
    explicit `AgentSession` state machine, the deterministic date resolver, the tool
@@ -75,17 +75,17 @@ Keep the cursor away from the **Live** toggle so the demo does not pause refresh
 | `screenshots/admin-call-detail.png` | Resolved date/time, summary, booking, event timeline | 1440 × 1600 |
 | `screenshots/admin-mobile.png` | Mobile dashboard | 390 × 844 |
 
-They were captured from the seeded dataset (four calls, two bookings) with the
-non-production notice and masking enabled. To recapture, start the clean stack,
-open `/admin/ui` (and `#call-1` for the detail), set the widths above, and take
-full-window screenshots without browser chrome. Update the images if the seeded
-data or layout changes.
+They were captured from the seeded dataset (five calls, three bookings, Malayalam and
+Hindi) with the non-production notice and masking enabled. To recapture, start the
+clean stack, open `/admin/ui` (and `#call-5` for the Hindi detail), set the widths
+above, and take full-window screenshots without browser chrome. Update the images if
+the seeded data or layout changes.
 
 ## Freeze checklist — November 6–7
 
 Run from the exact commit that will be tagged:
 
-- [x] `make test`, `make lint`, and `make rehearse` pass. (174 tests, ruff + mypy clean, all 3 rehearsal scenarios pass)
+- [x] `make test`, `make lint`, and `make rehearse` pass. (318 tests, ruff + mypy clean, all 3 rehearsal scenarios pass)
 - [x] Database initializes from a clean environment (`docker compose down -v` then up).
 - [x] `make simulate SCENARIO=appointment-malayalam` completes with one confirmed booking.
 - [x] `/health` returns `ok` and the dashboard loads at the deployed or local URL.

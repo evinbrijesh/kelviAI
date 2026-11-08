@@ -71,6 +71,40 @@ _MARATHI_HINTS = (
 )
 
 _LATIN_RE = re.compile(r"[A-Za-z]")
+_ROMANIZED_PATTERNS = {
+    "hi-IN": re.compile(
+        r"(?<!\w)(?:mera\s+naam|"
+        r"(?:aaj|kal|parso|parson)\s+(?:subah|dopahar|shaam|sham|raat)|"
+        r"(?:subah|dopahar|shaam|sham|raat)\s+(?:\d{1,2}|saadhe|sadhe|das|paanch)|"
+        r"(?:\d{1,2}|ek|do|teen|char|paanch|panch|chhe|saat|aath|nau|das|gyarah|barah)"
+        r"\s+baje)(?!\w)",
+        re.IGNORECASE,
+    ),
+    "ml-IN": re.compile(
+        r"(?<!\w)(?:ente\s+(?:peru|per)|"
+        r"(?:innu|naale|nale|mattannal)\s+(?:raavile|ravile|uchakku|vaikunneram|raathri)|"
+        r"(?:innu|naale|nale|mattannal)\s+(?:at\s+)?\d{1,2}|"
+        r"(?:raavile|ravile|uchakku|vaikunneram|raathri)"
+        r"\s+(?:\d{1,2}|pathu|pathara|randu|anchu)|"
+        r"(?:pathu|randu|anchu)\s+mani)(?!\w)",
+        re.IGNORECASE,
+    ),
+    "ta-IN": re.compile(
+        r"(?<!\w)(?:en\s+peyar|"
+        r"(?:indru|naalai)\s+(?:kaalai|mathiyam|maalai|iravu)|"
+        r"(?:indru|naalai)\s+(?:at\s+)?\d{1,2}|"
+        r"(?:kaalai|mathiyam|maalai|iravu)\s+(?:\d{1,2}|pathu|ainthu)|"
+        r"(?:pathu|ainthu)\s+(?:mani|arai))(?!\w)",
+        re.IGNORECASE,
+    ),
+    "bn-IN": re.compile(
+        r"(?<!\w)(?:amar\s+naam|"
+        r"(?:aaj|aj|kal|porshu)\s+(?:shokal|sokal|dupur|bikel|shondha|raat)|"
+        r"(?:shokal|sokal|dupur|bikel|shondha)\s+(?:\d{1,2}|sare|saare|dosh|panch)|"
+        r"(?:\d{1,2}|dosh|panch)\s+(?:tay|tae))(?!\w)",
+        re.IGNORECASE,
+    ),
+}
 
 
 def _build_aliases() -> dict[str, str]:
@@ -87,6 +121,9 @@ def _build_aliases() -> dict[str, str]:
             "panjabi": "pa-IN",
             "punjabi": "pa-IN",
             "hinglish": "hi-IN",
+            "manglish": "ml-IN",
+            "tanglish": "ta-IN",
+            "benglish": "bn-IN",
         }
     )
     return aliases
@@ -134,7 +171,7 @@ def _detect_devanagari(text: str) -> str:
 
 
 def detect_language(text: str | None, *, default: str | None = None) -> str | None:
-    """Detect the language of a transcript using its writing system."""
+    """Detect native scripts and a small set of romanized booking phrases."""
     if not text or not text.strip():
         return normalize_language(default)
 
@@ -144,6 +181,12 @@ def detect_language(text: str | None, *, default: str | None = None) -> str | No
         if code == "hi-IN":
             return _detect_devanagari(text)
         return code
+
+    scores = {code: len(pattern.findall(text)) for code, pattern in _ROMANIZED_PATTERNS.items()}
+    strongest = max(scores.values())
+    matches = [code for code, score in scores.items() if score == strongest and score > 0]
+    if len(matches) == 1:
+        return matches[0]
 
     if _LATIN_RE.search(text):
         return "en-IN"

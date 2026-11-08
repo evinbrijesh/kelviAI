@@ -55,8 +55,8 @@ async def test_clean_machine_bootstrap_and_first_booking(
 
             status = (await client.get("/admin/status")).json()
             assert status["calendars"] == 1
-            assert status["calls"] == 4
-            assert status["bookings"] == 2
+            assert status["calls"] == 5
+            assert status["bookings"] == 3
 
         database = app.state.database
         config = app.state.config

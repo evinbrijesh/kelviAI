@@ -138,7 +138,10 @@ class AgentSession:
     def _set_language(self, text: str, hint: str | None = None) -> None:
         hinted = normalize_language(hint)
         detected = hinted or (
-            detect_language(text) if not self._language_locked else None
+            detect_language(text)
+            if not self._language_locked
+            and self.state in (AgentState.AWAITING_SLOT, AgentState.CLARIFYING)
+            else None
         )
         if detected is None:
             return
@@ -410,6 +413,10 @@ class AgentSession:
             r"નામ",
             r"ਮੇਰਾ\s+ਨਾਮ",
             r"ਨਾਮ",
+            r"mera\s+naam",
+            r"ente\s+(?:peru|per)",
+            r"en\s+peyar",
+            r"amar\s+naam",
             r"name\s+is",
             r"I\s+am",
             r"this\s+is",
@@ -426,16 +433,38 @@ class AgentSession:
             r"\u0D00-\u0D7F"
         )
         pattern = (
-            rf"(?:{'|'.join(prefixes)})\s*[:=]?\s*([{name_chars}\s]+)"
+            rf"(?<![{name_chars}])(?:{'|'.join(prefixes)})(?![{name_chars}])"
+            rf"\s*[:=]?\s*([{name_chars}\s]+)"
         )
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            candidate = re.split(r"[.,\n;]", match.group(1).strip())[0].strip()
+            candidate = re.split(r"[.,\n;।॥!?]", match.group(1).strip())[0].strip()
+            candidate = re.sub(
+                r"(?:\s+(?:hai|he|hun|hoon|aanu|anu|ആണ്|ആണു|है|हूँ|हूं|आहे|"
+                r"হয়|ஆகும்|છે|ਹੈ))+$",
+                "",
+                candidate,
+                flags=re.IGNORECASE,
+            ).strip()
             if len(candidate) >= 2:
                 return candidate
         return None
 
     def _is_positive_confirmation(self, text: str) -> bool:
+        negations = (
+            "no", "not", "don't", "do not", "dont", "never", "cancel",
+            "nahi", "nahin", "mat", "venda", "vendam", "illa", "illai",
+            "വേണ്ട", "വേണ്ടാ", "വേണ്ടാം", "അല്ല", "ഇല്ല",
+            "नहीं", "नही", "मत", "ना", "नाही", "नको", "না",
+            "வேண்டாம்", "இல்லை", "వద్దు", "కాదు", "ಬೇಡ", "ಇಲ್ಲ",
+            "ના", "નહીં", "ਨਹੀਂ", "ਨਾ",
+        )
+        text_lower = text.lower().replace("’", "'")
+        boundary = r"\w\u0900-\u0D7F"
+        negative_pattern = "|".join(re.escape(term) for term in negations)
+        if re.search(rf"(?<![{boundary}])(?:{negative_pattern})(?![{boundary}])", text_lower):
+            return False
+
         keywords = [
             "അതെ",
             "ശരി",
@@ -450,6 +479,22 @@ class AgentSession:
             "sure",
             "book",
             "proceed",
+            "haan",
+            "han",
+            "ji",
+            "theek",
+            "thik",
+            "athe",
+            "athey",
+            "sheri",
+            "shari",
+            "aam",
+            "aama",
+            "aamam",
+            "sari",
+            "hya",
+            "hyan",
+            "thik ache",
             "हाँ",
             "हां",
             "जी",
@@ -487,8 +532,10 @@ class AgentSession:
             "ਬੁੱਕ",
             "ਪੱਕੀ",
         ]
-        text_lower = text.lower()
-        return any(k in text_lower for k in keywords)
+        positive_pattern = "|".join(re.escape(term) for term in keywords)
+        return re.search(
+            rf"(?<![{boundary}])(?:{positive_pattern})(?![{boundary}])", text_lower
+        ) is not None
 
     def _finish(self, status: CallStatus, summary: str, outcome: str) -> None:
         assert self.call_log is not None

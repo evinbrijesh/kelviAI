@@ -4,17 +4,25 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from app.llm.interfaces import DateTimeResolution, DateTimeResolver
-from app.llm.language import DEFAULT_LANGUAGE, normalize_language
+from app.llm.language import DEFAULT_LANGUAGE, detect_language, normalize_language
 
 DEFAULT_TIMEZONE = "Asia/Kolkata"
 
 # Relative days keyed by offset from today (0 = today, 1 = tomorrow, 2 = day after).
 RELATIVE_DATE_TERMS: dict[str, dict[int, tuple[str, ...]]] = {
-    "ml-IN": {0: ("ഇന്ന്",), 1: ("നാളെ",), 2: ("മറ്റന്നാൾ",)},
-    "hi-IN": {0: ("आज",), 1: ("कल",), 2: ("परसों",)},
+    "ml-IN": {
+        0: ("ഇന്ന്", "innu"),
+        1: ("നാളെ", "naale", "nale"),
+        2: ("മറ്റന്നാൾ", "mattannal"),
+    },
+    "hi-IN": {0: ("आज", "aaj"), 1: ("कल", "kal"), 2: ("परसों", "parson", "parso")},
     "mr-IN": {0: ("आज",), 1: ("उद्या",), 2: ("परवा",)},
-    "bn-IN": {0: ("আজ",), 1: ("কাল",), 2: ("পরশু",)},
-    "ta-IN": {0: ("இன்று",), 1: ("நாளை",), 2: ("நாளை மறுநாள்", "நாளைமறுநாள்")},
+    "bn-IN": {0: ("আজ", "aaj", "aj"), 1: ("কাল", "kal"), 2: ("পরশু", "porshu")},
+    "ta-IN": {
+        0: ("இன்று", "indru"),
+        1: ("நாளை", "naalai"),
+        2: ("நாளை மறுநாள்", "நாளைமறுநாள்", "naalai marunaal"),
+    },
     "te-IN": {0: ("ఈరోజు",), 1: ("రేపు",), 2: ("ఎల్లుండి",)},
     "kn-IN": {0: ("ಇಂದು",), 1: ("ನಾಳೆ",), 2: ("ನಾಡಿದ್ದು",)},
     "gu-IN": {0: ("આજે",), 1: ("કાલે",), 2: ("પરમ દિવસે", "પરમદિવસે")},
@@ -28,6 +36,12 @@ RELATIVE_DATE_TERMS: dict[str, dict[int, tuple[str, ...]]] = {
 
 MORNING_TERMS = (
     "morning",
+    "subah",
+    "raavile",
+    "ravile",
+    "kaalai",
+    "shokal",
+    "sokal",
     "രാവിലെ",
     "सुबह",
     "সকাল",
@@ -41,6 +55,10 @@ MORNING_TERMS = (
 
 AFTERNOON_TERMS = (
     "afternoon",
+    "dopahar",
+    "uchakku",
+    "mathiyam",
+    "dupur",
     "ഉച്ചയ്ക്ക്",
     "दोपहर",
     "দুপুর",
@@ -54,6 +72,12 @@ AFTERNOON_TERMS = (
 
 EVENING_TERMS = (
     "evening",
+    "shaam",
+    "sham",
+    "vaikunneram",
+    "maalai",
+    "bikel",
+    "shondha",
     "വൈകുന്നേരം",
     "വൈകിട്ട്",
     "शाम",
@@ -69,6 +93,9 @@ EVENING_TERMS = (
 
 NIGHT_TERMS = (
     "night",
+    "raat",
+    "raathri",
+    "iravu",
     "രാത്രി",
     "रात",
     "রাত",
@@ -93,6 +120,18 @@ NUMBER_WORDS: dict[str, dict[str, int]] = {
         "പത്ത്": 10,
         "പതിനൊന്ന്": 11,
         "പന്ത്രണ്ട്": 12,
+        "onnu": 1,
+        "randu": 2,
+        "moonnu": 3,
+        "naalu": 4,
+        "anchu": 5,
+        "aaru": 6,
+        "ezhu": 7,
+        "ettu": 8,
+        "onpathu": 9,
+        "pathu": 10,
+        "pathinonnu": 11,
+        "panthrandu": 12,
     },
     "hi-IN": {
         "एक": 1,
@@ -109,6 +148,19 @@ NUMBER_WORDS: dict[str, dict[str, int]] = {
         "दस": 10,
         "ग्यारह": 11,
         "बारह": 12,
+        "ek": 1,
+        "do": 2,
+        "teen": 3,
+        "char": 4,
+        "paanch": 5,
+        "panch": 5,
+        "chhe": 6,
+        "saat": 7,
+        "aath": 8,
+        "nau": 9,
+        "das": 10,
+        "gyarah": 11,
+        "barah": 12,
     },
     "mr-IN": {
         "एक": 1,
@@ -137,6 +189,18 @@ NUMBER_WORDS: dict[str, dict[str, int]] = {
         "দশ": 10,
         "এগারো": 11,
         "বারো": 12,
+        "ek": 1,
+        "dui": 2,
+        "tin": 3,
+        "char": 4,
+        "panch": 5,
+        "chhoy": 6,
+        "sat": 7,
+        "at": 8,
+        "noy": 9,
+        "dosh": 10,
+        "egaro": 11,
+        "baro": 12,
     },
     "ta-IN": {
         "ஒன்று": 1,
@@ -152,6 +216,19 @@ NUMBER_WORDS: dict[str, dict[str, int]] = {
         "பத்து": 10,
         "பதினொன்று": 11,
         "பன்னிரண்டு": 12,
+        "ondru": 1,
+        "oru": 1,
+        "irandu": 2,
+        "moondru": 3,
+        "naangu": 4,
+        "ainthu": 5,
+        "aaru": 6,
+        "ezhu": 7,
+        "ettu": 8,
+        "onbadhu": 9,
+        "pathu": 10,
+        "pathinonru": 11,
+        "pannirandu": 12,
     },
     "te-IN": {
         "ఒకటి": 1,
@@ -227,11 +304,11 @@ NUMBER_WORDS: dict[str, dict[str, int]] = {
 }
 
 CLOCK_MARKERS: dict[str, tuple[str, ...]] = {
-    "ml-IN": ("മണി",),
-    "hi-IN": ("बजे",),
+    "ml-IN": ("മണി", "mani"),
+    "hi-IN": ("बजे", "baje"),
     "mr-IN": ("वाजता", "वाजले"),
-    "bn-IN": ("টায়", "টার", "টা"),
-    "ta-IN": ("மணி",),
+    "bn-IN": ("টায়", "টার", "টা", "tay", "tae"),
+    "ta-IN": ("மணி", "mani"),
     "te-IN": ("గంటలకు", "గంటకు", "గంటల"),
     "kn-IN": ("ಗಂಟೆಗೆ", "ಗಂಟೆ"),
     "gu-IN": ("વાગ્યે", "વાગે"),
@@ -252,12 +329,17 @@ MALAYALAM_HALF_HOURS = {
     "പത്തര": (10, 30),
     "പതിനൊന്നര": (11, 30),
     "പന്ത്രണ്ടര": (12, 30),
+    "onnara": (1, 30),
+    "randara": (2, 30),
+    "anchara": (5, 30),
+    "pathara": (10, 30),
+    "paththara": (10, 30),
 }
 
 HALF_HOUR_PREFIXES: dict[str, tuple[str, ...]] = {
-    "hi-IN": ("साढ़े", "साढे"),
+    "hi-IN": ("साढ़े", "साढे", "saadhe", "sadhe"),
     "mr-IN": ("साडे",),
-    "bn-IN": ("সাড়ে",),
+    "bn-IN": ("সাড়ে", "sare", "saare"),
     "ta-IN": ("முக்கால்",),
     "te-IN": ("అర",),
     "kn-IN": ("ಅರ್ಧ",),
@@ -350,8 +432,15 @@ _NATIVE_DIGITS = {
 }
 
 _DIGIT_TABLE = str.maketrans(_NATIVE_DIGITS)
+
+
+def _term_pattern(term: str) -> str:
+    escaped = re.escape(term)
+    return rf"(?<!\w){escaped}(?!\w)" if term.isascii() else escaped
+
+
 _CLOCK_MARKER_PATTERN = "|".join(
-    re.escape(marker) for markers in CLOCK_MARKERS.values() for marker in markers
+    _term_pattern(marker) for markers in CLOCK_MARKERS.values() for marker in markers
 )
 
 
@@ -444,10 +533,17 @@ class CustomDateTimeResolver(DateTimeResolver):
                 pass
 
         labels = {0: "today", 1: "tomorrow", 2: "day after tomorrow"}
+        detected = detect_language(text_lower)
         for offset in (2, 1, 0):
             for code in languages:
                 for term in RELATIVE_DATE_TERMS.get(code, {}).get(offset, ()):
-                    if term.lower() in text_lower:
+                    if (
+                        term.isascii()
+                        and code != "en-IN"
+                        and code not in (languages[0], detected)
+                    ):
+                        continue
+                    if re.search(_term_pattern(term), text_lower):
                         target = now + timedelta(days=offset)
                         return target.date(), f"Detected {labels[offset]} ({term})"
         return None, ""
@@ -455,23 +551,33 @@ class CustomDateTimeResolver(DateTimeResolver):
     def _extract_time(
         self, text: str, text_lower: str, languages: list[str]
     ) -> tuple[time | None, str]:
-        is_morning = any(term in text_lower for term in MORNING_TERMS)
+        is_morning = any(re.search(_term_pattern(term), text_lower) for term in MORNING_TERMS)
         is_pm = any(
-            term in text_lower
+            re.search(_term_pattern(term), text_lower)
             for term in (*AFTERNOON_TERMS, *EVENING_TERMS, *NIGHT_TERMS)
         )
         is_pm = is_pm and not is_morning
 
         for word, (hour, minute) in MALAYALAM_HALF_HOURS.items():
-            if word in text:
+            if re.search(_term_pattern(word), text_lower):
                 return self._clock(hour, minute, is_morning, is_pm), (
                     f"Detected time '{word}'"
+                )
+
+        tamil_half = re.search(
+            r"(?<!\w)(\d{1,2}|[^\s,.;]+)\s+(?:mani\s+)?arai(?!\w)", text_lower
+        )
+        if tamil_half:
+            half_hour = self._as_hour(tamil_half.group(1))
+            if half_hour is not None:
+                return self._clock(half_hour, 30, is_morning, is_pm), (
+                    f"Detected half-hour '{tamil_half.group(0)}'"
                 )
 
         for code in languages:
             for prefix in HALF_HOUR_PREFIXES.get(code, ()):
                 match = re.search(
-                    rf"{re.escape(prefix)}\s*(\d{{1,2}}|[^\s,.;]+)\s*"
+                    rf"{_term_pattern(prefix)}\s*(\d{{1,2}}(?![\da-z])|[^\s,.;]+)\s*"
                     rf"(?:{_CLOCK_MARKER_PATTERN})?",
                     text_lower,
                 )
@@ -497,7 +603,7 @@ class CustomDateTimeResolver(DateTimeResolver):
         for code in languages:
             for word, number in NUMBER_WORDS.get(code, {}).items():
                 match = re.search(
-                    rf"{re.escape(word)}\s*(?:{_CLOCK_MARKER_PATTERN})",
+                    rf"{_term_pattern(word)}\s*(?:{_CLOCK_MARKER_PATTERN})",
                     text_lower,
                 )
                 if match:
@@ -506,7 +612,7 @@ class CustomDateTimeResolver(DateTimeResolver):
                     )
 
         clock_match = re.search(
-            rf"(?<!\d)(\d{{1,2}})\s*(?:{_CLOCK_MARKER_PATTERN})", text_lower
+            rf"(?<!\w)(\d{{1,2}})\s*(?:{_CLOCK_MARKER_PATTERN})", text_lower
         )
         if clock_match:
             h = int(clock_match.group(1))

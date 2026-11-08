@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="data:,">
+<title>Talk to VaaniKit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Redaction+50:ital,wght@0,400;0,700;1,400&family=Inter+Tight:wght@400..700&family=JetBrains+Mono:wght@400..700&display=swap">
+<script type="module" src="/admin/static/voice-demo.js"></script>
+<style>
+  :root { color-scheme: dark; --bg: #000; --surface: #0d1310; --text: #edf5f0; --muted: #a1b4a9; --accent: #8ef5c5; --border: #30453a; --sans: "Inter Tight", system-ui, sans-serif; --display: "Redaction 50", var(--sans); --mono: "JetBrains Mono", ui-monospace, monospace; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 var(--sans); }
+  a[href], button:enabled { cursor: pointer; }
+  a { color: inherit; text-underline-offset: 4px; }
+  a:hover { text-decoration-thickness: 2px; }
+  a:active { opacity: .8; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
+  header { border-bottom: 1px solid var(--border); }
+  nav { max-width: 1180px; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 20px; }
+  nav a { display: inline-flex; align-items: center; min-height: 44px; }
+  .brand { font: 24px var(--display); }
+  main { max-width: 1180px; margin: auto; padding: 32px 20px 56px; }
+  h1 { font: 400 clamp(36px, 5vw, 64px)/1.05 var(--display); letter-spacing: -.025em; margin: 0 0 18px; }
+  h1 em { color: var(--accent); font-style: italic; }
+  .intro { max-width: 650px; color: var(--muted); margin: 0 0 32px; }
+  .workspace { display: grid; gap: 24px; }
+  .control { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 24px; align-self: start; min-width: 0; }
+  .label { font: 12px/1.6 var(--mono); color: var(--muted); margin: 0 0 8px; }
+  h2 { font: 400 26px/1.2 var(--display); margin: 0 0 18px; }
+  #status { margin: 0; font-size: 21px; }
+  #guidance { color: var(--muted); min-height: 52px; margin: 8px 0 22px; }
+  button { min-height: 48px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--text); font: 600 15px/1.4 var(--sans); padding: 12px 16px; }
+  button:hover:enabled { border-color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+  button:active:enabled { transform: translateY(1px); }
+  button:disabled { cursor: not-allowed; opacity: .5; border-style: dashed; }
+  .primary { background: var(--accent); color: #05130c; border-color: var(--accent); width: 100%; }
+  #record { width: 100%; margin-top: 12px; }
+  #end { width: 100%; margin-top: 12px; }
+  #timer { display: block; margin: 12px 0 0; font: 13px/1.6 var(--mono); }
+  .facts { display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 20px; margin: 24px 0 0; }
+  .facts div { min-width: 0; }
+  dt { color: var(--muted); font: 12px/1.6 var(--mono); }
+  dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+  .conversation { min-width: 0; }
+  .conversation-head { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; }
+  .conversation-head p { font: 12px/1.6 var(--mono); color: var(--muted); }
+  #empty { color: var(--muted); padding: 24px 0; border-top: 1px solid var(--border); }
+  #messages { list-style: none; padding: 0; margin: 0; }
+  #messages li { border-top: 1px solid var(--border); padding: 18px 0; }
+  .speaker { font: 12px/1.6 var(--mono); color: var(--muted); }
+  .utterance { margin: 8px 0 0; font-size: 19px; overflow-wrap: anywhere; white-space: pre-wrap; }
+  #messages li[data-speaker="agent"] .speaker { color: var(--accent); }
+  .playback { margin-top: 24px; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  audio { display: block; width: 100%; margin-top: 10px; }
+  #audio-note { color: var(--muted); margin: 8px 0 0; font-size: 14px; }
+  #error { border: 1px solid var(--text); border-radius: 8px; padding: 14px; margin-top: 18px; overflow-wrap: anywhere; }
+  #result { border-bottom: 1px solid var(--accent); padding: 18px 0; margin-bottom: 20px; }
+  #result strong { display: block; font-size: 22px; }
+  #result p { margin: 4px 0 0; overflow-wrap: anywhere; }
+  .examples { margin-top: 32px; }
+  .examples p { margin: 0 0 8px; color: var(--muted); }
+  .examples blockquote { margin: 0 0 12px; font-size: 17px; }
+  footer { max-width: 1180px; margin: auto; padding: 0 20px 28px; color: var(--muted); font-size: 13px; }
+  @media (min-width: 650px) { .facts { grid-template-columns: 1fr 1fr; } .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; } main { padding-top: 48px; } }
+  @media (min-width: 950px) { .workspace { grid-template-columns: minmax(290px, .8fr) minmax(0, 1.4fr); gap: 48px; } .control { padding: 28px; } .examples { display: block; } main { padding-top: 64px; } }
+  @media (prefers-reduced-motion: reduce) { button:active:enabled { transform: none; } }
+</style>
+</head>
+<body>
+<header><nav aria-label="Main navigation"><span class="brand">VaaniKit</span><a id="dashboard" href="/admin/ui">Call dashboard</a></nav></header>
+<main>
+<h1>Book a visit.<br><em>Say it your way.</em></h1>
+<p class="intro">A voice appointment demo using Gnani speech recognition and synthesis. Speak in an Indian language or mix it with English. Use fictional names only.</p>
+<div class="workspace">
+<section class="control" aria-labelledby="control-heading">
+  <h2 id="control-heading">Talk to VaaniKit</h2>
+  <p id="status" role="status" aria-live="polite">Checking voice service...</p>
+  <p id="guidance">Keep your microphone ready. The greeting starts in Malayalam; subsequent replies follow the detected language.</p>
+  <button class="primary" id="start" disabled>Start demo call</button>
+  <button id="record" disabled>Record your turn</button>
+  <button id="end" disabled>End call</button>
+  <output id="timer" hidden></output>
+  <div id="error" role="alert" hidden></div>
+  <dl class="facts">
+    <div><dt>Speech recognition</dt><dd id="stt">Checking...</dd></div>
+    <div><dt>Voice synthesis</dt><dd id="tts">Checking...</dd></div>
+    <div><dt>Reply language</dt><dd id="language">Not detected yet</dd></div>
+    <div><dt>Call state</dt><dd id="state">Not started</dd></div>
+  </dl>
+  <div class="examples">
+    <div><p>Example request</p><blockquote lang="ml">നാളെ രാവിലെ 10 മണിക്ക് appointment വേണം</blockquote></div>
+    <div><p>Or in Hinglish</p><blockquote lang="hi-Latn">Kal subah 10 baje appointment chahiye</blockquote></div>
+  </div>
+</section>
+<section class="conversation" aria-labelledby="conversation-heading">
+  <div class="conversation-head"><h2 id="conversation-heading">Conversation</h2><p>Voice, not browser dictation</p></div>
+  <div id="result" role="status" hidden><strong>Appointment booked</strong><p id="reference"></p></div>
+  <p id="empty">Your conversation will appear here when the call starts. Request a date and time, give a fictional name, then confirm the appointment.</p>
+  <ol id="messages" role="log" aria-live="polite" aria-relevant="additions"></ol>
+  <div class="playback" id="playback" hidden>
+    <p class="label">Latest spoken reply</p>
+    <audio id="reply-audio" controls preload="none" aria-label="Latest VaaniKit spoken reply"></audio>
+    <p id="audio-note" hidden></p>
+  </div>
+</section>
+</div>
+</main>
+<footer>Non-production demo. Microphone audio is held in memory and sent to Gnani when you send a turn (or reach the 25-second limit). It is not saved as a recording. Transcripts and synthetic bookings appear in the call dashboard. Run locally or behind access controls, not as an open public service.</footer>
+</body>
+</html>
