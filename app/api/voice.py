@@ -64,6 +64,11 @@ class VoiceTurnJSONRequest(BaseModel):
     language: str | None = Field(default=None, description="Optional override language code")
 
 
+class VoiceTextTurnRequest(BaseModel):
+    text: str = Field(description="Caller utterance in plain text")
+    language: str | None = Field(default=None, description="Optional override language code")
+
+
 class VoiceTurnResponse(BaseModel):
     call_sid: str
     caller_transcript: str
@@ -217,6 +222,47 @@ async def process_voice_turn(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
+
+    audio_b64 = base64.b64encode(turn.audio).decode("ascii")
+    audio_url = f"/api/voice/session/{call_sid}/audio"
+
+    if turn.is_terminal:
+        logger.info("Call %s reached terminal state: %s", call_sid, turn.state)
+
+    return VoiceTurnResponse(
+        call_sid=call_sid,
+        caller_transcript=turn.caller_transcript,
+        agent_reply=turn.agent_reply,
+        state=turn.state.value,
+        language=turn.language,
+        is_terminal=turn.is_terminal,
+        booking_id=turn.booking_id,
+        audio_base64=audio_b64,
+        audio_url=audio_url,
+        latencies_ms=turn.latencies_ms,
+    )
+
+
+@router.post("/session/{call_sid}/text-turn", response_model=VoiceTurnResponse)
+async def process_text_turn(
+    call_sid: str,
+    body: VoiceTextTurnRequest,
+) -> VoiceTurnResponse:
+    """Process a typed text turn (fallback for microphone failure) and synthesize agent speech."""
+    voice_session = _manager.get(call_sid)
+    if voice_session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Active voice session not found for call_sid '{call_sid}'",
+        )
+
+    if not body.text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Text utterance cannot be empty",
+        )
+
+    turn = await voice_session.process_text_turn(body.text, language=body.language)
 
     audio_b64 = base64.b64encode(turn.audio).decode("ascii")
     audio_url = f"/api/voice/session/{call_sid}/audio"

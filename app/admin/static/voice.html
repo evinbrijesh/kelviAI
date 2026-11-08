@@ -58,6 +58,14 @@
   .playback { margin-top: 24px; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
   audio { display: block; width: 100%; margin-top: 10px; }
   #audio-note { color: var(--muted); margin: 8px 0 0; font-size: 14px; }
+  .text-fallback { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 18px; }
+  .text-form { display: flex; gap: 8px; margin-top: 8px; }
+  .text-form input { flex: 1; min-height: 44px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 8px 12px; font: 15px var(--sans); }
+  .text-form input:focus-visible { outline: 2px solid var(--accent); }
+  .text-form button { min-height: 44px; padding: 8px 16px; white-space: nowrap; }
+  #alt-card { background: rgba(142, 245, 197, 0.06); border: 1px solid var(--accent); border-radius: 12px; padding: 16px; margin: 16px 0; }
+  #alt-card h3 { font: 600 16px/1.3 var(--sans); color: var(--accent); margin: 0 0 6px; }
+  #alt-card p { margin: 0; font-size: 14px; color: var(--text); }
   #error { border: 1px solid var(--text); border-radius: 8px; padding: 14px; margin-top: 18px; overflow-wrap: anywhere; }
   #result { border-bottom: 1px solid var(--accent); padding: 18px 0; margin-bottom: 20px; }
   #result strong { display: block; font-size: 22px; }
@@ -85,6 +93,13 @@
   <button id="record" disabled>Record your turn</button>
   <button id="end" disabled>End call</button>
   <output id="timer" hidden></output>
+  <div class="text-fallback" id="text-fallback" hidden>
+    <label class="label" for="text-input">Or type your request (microphone fallback)</label>
+    <form class="text-form" id="text-form">
+      <input type="text" id="text-input" placeholder="e.g. നാളെ രാവിലെ 10 മണിക്ക്" autocomplete="off" />
+      <button type="submit" id="text-send">Send text</button>
+    </form>
+  </div>
   <div id="error" role="alert" hidden></div>
   <dl class="facts">
     <div><dt>Speech recognition</dt><dd id="stt">Checking...</dd></div>
@@ -98,8 +113,12 @@
   </div>
 </section>
 <section class="conversation" aria-labelledby="conversation-heading">
-  <div class="conversation-head"><h2 id="conversation-heading">Conversation</h2><p>Voice, not browser dictation</p></div>
+  <div class="conversation-head"><h2 id="conversation-heading">Conversation</h2><p>Voice with synthesized replies</p></div>
   <div id="result" role="status" hidden><strong>Appointment booked</strong><p id="reference"></p></div>
+  <div id="alt-card" role="region" aria-label="Alternative slot notice" hidden>
+    <h3>Alternative Slot Offered</h3>
+    <p id="alt-text"></p>
+  </div>
   <p id="empty">Your conversation will appear here when the call starts. Request a date and time, give a fictional name, then confirm the appointment.</p>
   <ol id="messages" role="log" aria-live="polite" aria-relevant="additions"></ol>
   <div class="playback" id="playback" hidden>

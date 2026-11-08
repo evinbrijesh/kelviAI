@@ -161,6 +161,59 @@ class VoiceSession:
             },
         )
 
+    async def process_text_turn(
+        self,
+        text: str,
+        *,
+        language: str | None = None,
+        **kwargs: Any,
+    ) -> VoiceTurnResult:
+        """Process a text turn without inbound audio, and synthesize speech reply."""
+        clean_text = text.strip()
+        detected_language = resolve_language(
+            clean_text,
+            hint=language,
+            default=self.agent_session.language,
+        )
+        t_agent = time.perf_counter()
+        agent_reply = await self.agent_session.process_turn(
+            clean_text, language=detected_language
+        )
+        agent_ms = round((time.perf_counter() - t_agent) * 1000, 2)
+
+        t_tts = time.perf_counter()
+        tts_result = await self.tts.synthesize(
+            agent_reply, language=self.agent_session.language, **kwargs
+        )
+        tts_ms = round((time.perf_counter() - t_tts) * 1000, 2)
+        self.latest_audio = tts_result.audio
+
+        self.agent_session.session.commit()
+
+        is_terminal = self.agent_session.state in (
+            AgentState.COMPLETED,
+            AgentState.FAILED,
+            AgentState.TRANSFERRED,
+        )
+
+        return VoiceTurnResult(
+            caller_transcript=clean_text,
+            agent_reply=agent_reply,
+            audio=tts_result.audio,
+            sample_rate=tts_result.sample_rate,
+            audio_format=tts_result.format,
+            state=self.agent_session.state,
+            is_terminal=is_terminal,
+            language=self.agent_session.language,
+            booking_id=self.agent_session.booking_id,
+            latencies_ms={
+                "stt_ms": 0.0,
+                "agent_ms": agent_ms,
+                "tts_ms": tts_ms,
+                "total_ms": round(agent_ms + tts_ms, 2),
+            },
+        )
+
     def hangup(self) -> None:
         """Record caller abandonment / hangup and commit."""
         self.agent_session.hangup()

@@ -149,6 +149,7 @@ class AgentSession:
         self.templates = templates_for(detected)
         self._language_locked = True
         if self.call_log is not None:
+            self.session.add(self.call_log.call)
             self.call_log.call.language = detected
 
     def hangup(self, reason: str = "Caller hung up before completing the request.") -> str:

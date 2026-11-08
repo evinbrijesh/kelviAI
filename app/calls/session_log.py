@@ -28,6 +28,7 @@ class CallSessionLog:
         tool_name: str | None = None,
         latency_ms: int | None = None,
     ) -> CallEvent:
+        self.session.add(self.call)
         self._seq += 1
         event = CallEvent(
             call_id=self.call.id,
@@ -75,6 +76,7 @@ class CallSessionLog:
         return self.record(EventType.ERROR, {"reason": reason, **details})
 
     def finish(self, status: CallStatus, summary: str, outcome: str) -> None:
+        self.session.add(self.call)
         self.call.status = str(status)
         self.call.ended_at = utcnow()
         self.call.summary = summary

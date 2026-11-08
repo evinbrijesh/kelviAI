@@ -1,7 +1,8 @@
 const el = Object.fromEntries([
   'start', 'record', 'end', 'status', 'guidance', 'error', 'timer', 'stt', 'tts',
   'language', 'state', 'empty', 'messages', 'playback', 'reply-audio', 'audio-note',
-  'result', 'reference', 'dashboard',
+  'result', 'reference', 'dashboard', 'text-fallback', 'text-form', 'text-input',
+  'text-send', 'alt-card', 'alt-text',
 ].map(id => [id, document.getElementById(id)]));
 const languages = { 'bn-IN': 'Bengali', 'en-IN': 'English', 'gu-IN': 'Gujarati', 'hi-IN': 'Hindi', 'kn-IN': 'Kannada', 'ml-IN': 'Malayalam', 'mr-IN': 'Marathi', 'pa-IN': 'Punjabi', 'ta-IN': 'Tamil', 'te-IN': 'Telugu' };
 const guidance = {
@@ -36,6 +37,11 @@ function controls() {
   el.record.textContent = mode === 'recording' ? 'Send this turn' : 'Record your turn';
   el.end.disabled = !callSid || ['connecting', 'processing', 'ending'].includes(mode);
   el.timer.hidden = mode !== 'recording';
+  if (el['text-fallback']) {
+    el['text-fallback'].hidden = !Boolean(callSid) || ['connecting', 'ending', 'done'].includes(mode);
+    if (el['text-send']) el['text-send'].disabled = !['ready'].includes(mode);
+    if (el['text-input']) el['text-input'].disabled = !['ready'].includes(mode);
+  }
 }
 
 function setMode(next, status, instruction) {
@@ -234,21 +240,66 @@ async function sendTurn() {
   try {
     const wav = await prepareWav(parts, count, rate);
     const turn = await request(`/api/voice/session/${encodeURIComponent(callSid)}/turn`, { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav });
-    addMessage('caller', turn.caller_transcript || '(No speech detected)', turn.language);
-    addMessage('agent', turn.agent_reply, turn.language);
-    el.language.textContent = languages[turn.language] || turn.language;
-    el.state.textContent = turn.state.replaceAll('_', ' ');
-    if (turn.booking_id) { el.reference.textContent = `Booking reference ${turn.booking_id}. See the confirmed date and time in the reply below.`; el.result.hidden = false; }
-    if (turn.is_terminal) {
-      const sid = callSid;
-      try { await request(`/api/voice/session/${encodeURIComponent(sid)}/hangup`, { method: 'POST' }); callSid = null; }
-      catch { showError(new Error('The call concluded, but session cleanup failed. Press End call before starting another.')); }
-    }
-    await playReply(turn.audio_base64, guidance[turn.state] || 'Follow the instructions in the reply.', turn.is_terminal);
+    await handleTurnResult(turn);
   } catch (error) {
     showError(error);
     setMode('uncertain', 'Voice request stopped', 'The turn may have been processed. End this call before starting another; do not resend a confirmation.');
   }
+}
+
+async function handleTurnResult(turn) {
+  addMessage('caller', turn.caller_transcript || '(No speech detected)', turn.language);
+  addMessage('agent', turn.agent_reply, turn.language);
+  el.language.textContent = languages[turn.language] || turn.language;
+  el.state.textContent = turn.state.replaceAll('_', ' ');
+
+  // Detect alternative slot suggestions in the reply
+  if (el['alt-card'] && el['alt-text']) {
+    if (turn.state === 'awaiting_name' || turn.state === 'awaiting_confirmation') {
+      const lower = turn.agent_reply.toLowerCase();
+      if (lower.includes('nearest') || lower.includes('taken') || lower.includes('ലഭ്യമല്ല') || lower.includes('ലഭ്യമായ സമയം')) {
+        el['alt-text'].textContent = turn.agent_reply;
+        el['alt-card'].hidden = false;
+      } else {
+        el['alt-card'].hidden = true;
+      }
+    } else {
+      el['alt-card'].hidden = true;
+    }
+  }
+
+  if (turn.booking_id) {
+    el.reference.textContent = `Booking reference ${turn.booking_id}. See the confirmed date and time in the reply below.`;
+    el.result.hidden = false;
+  }
+  if (turn.is_terminal) {
+    const sid = callSid;
+    try { await request(`/api/voice/session/${encodeURIComponent(sid)}/hangup`, { method: 'POST' }); callSid = null; }
+    catch { showError(new Error('The call concluded, but session cleanup failed. Press End call before starting another.')); }
+  }
+  await playReply(turn.audio_base64, guidance[turn.state] || 'Follow the instructions in the reply.', turn.is_terminal);
+}
+
+if (el['text-form']) {
+  el['text-form'].addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!callSid || mode !== 'ready') return;
+    const text = el['text-input'].value.trim();
+    if (!text) return;
+    el['text-input'].value = '';
+    setMode('processing', 'Processing your request', 'Handling your input and synthesizing speech reply...');
+    try {
+      const turn = await request(`/api/voice/session/${encodeURIComponent(callSid)}/text-turn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      await handleTurnResult(turn);
+    } catch (error) {
+      showError(error);
+      setMode('uncertain', 'Request stopped', 'The turn may have been processed. End this call before starting another.');
+    }
+  });
 }
 
 el.start.addEventListener('click', async () => {
@@ -256,6 +307,7 @@ el.start.addEventListener('click', async () => {
   generation++;
   clearError(); clearPlayback();
   el.messages.replaceChildren(); el.empty.hidden = false; el.result.hidden = true;
+  if (el['alt-card']) el['alt-card'].hidden = true;
   setMode('connecting', 'Starting your call', 'Gnani is synthesizing the opening greeting.');
   try {
     const start = await request('/api/voice/session/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ channel: 'browser_demo' }) });

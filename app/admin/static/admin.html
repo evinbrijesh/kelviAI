@@ -406,6 +406,7 @@
 
   .mono { font-family: var(--mono); font-size: 12.5px; }
   td.mono { color: var(--muted); }
+  .caller-wrap { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
   .badge {
     display: inline-flex;
@@ -749,6 +750,26 @@
     return entry ? `${entry[0]} (${entry[1]})` : (value || "-");
   }
 
+  function formatCaller(phone, channel) {
+    const isBrowserDemo = channel === "browser_demo";
+    if (isBrowserDemo) {
+      if (!phone || phone === "***") {
+        return badge("Browser Demo", "info");
+      }
+      return el("span", { class: "caller-wrap" },
+        el("span", { text: phone }),
+        badge("Demo", "info"),
+      );
+    }
+    if (channel === "simulation") {
+      return el("span", { class: "caller-wrap" },
+        el("span", { text: phone || "***" }),
+        badge("Sim"),
+      );
+    }
+    return el("span", { text: phone || "-" });
+  }
+
   function statusTone(status) {
     if (status === "completed") return "ok";
     if (status === "failed") return "error";
@@ -819,7 +840,7 @@
     const body = el("tbody", {}, ...state.calls.map((call) =>
       el("tr", {},
         el("td", { class: "numeric", dataset: { label: "Started" }, text: formatDateTime(call.started_at) }),
-        el("td", { class: "mono", dataset: { label: "Caller" }, text: call.caller_phone }),
+        el("td", { class: "mono", dataset: { label: "Caller" } }, formatCaller(call.caller_phone, call.channel)),
         el("td", { dataset: { label: "Language" }, text: formatLanguage(call.language) }),
         el("td", { dataset: { label: "Status" } }, badge(call.status, statusTone(call.status))),
         el("td", { dataset: { label: "Outcome" } }, call.outcome ? badge(call.outcome, "info") : el("span", { class: "muted", text: "-" })),
@@ -858,7 +879,7 @@
       el("tr", {},
         el("td", { class: "numeric", dataset: { label: "Slot" }, text: formatDateTime(booking.slot_start) }),
         el("td", { dataset: { label: "Patient" }, text: booking.patient_name }),
-        el("td", { class: "mono", dataset: { label: "Caller" }, text: booking.caller_phone }),
+        el("td", { class: "mono", dataset: { label: "Caller" } }, booking.caller_phone === "***" ? badge("Demo", "info") : booking.caller_phone),
         el("td", { dataset: { label: "Clinic" }, text: booking.clinic }),
         el("td", { dataset: { label: "Status" } }, badge(booking.status, booking.status === "confirmed" ? "ok" : "warn")),
         el("td", {}, booking.call_id
@@ -1065,9 +1086,9 @@
             ),
           ),
           el("dl", { class: "meta" },
-            metaItem("Caller", detail.caller_phone, true),
+            metaItem("Caller", detail.channel === "browser_demo" && (!detail.caller_phone || detail.caller_phone === "***") ? "Browser Demo" : detail.caller_phone, true),
             metaItem("Language", formatLanguage(detail.language)),
-            metaItem("Channel", detail.channel),
+            metaItem("Channel", detail.channel === "browser_demo" ? "Browser Demo (Studio)" : detail.channel),
             metaItem("Bookings", String(detail.booking_count)),
           ),
         ),

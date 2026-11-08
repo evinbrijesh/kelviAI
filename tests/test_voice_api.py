@@ -108,6 +108,18 @@ async def test_voice_session_lifecycle_and_turn(
     assert not turn_data["is_terminal"]
     assert "total_ms" in turn_data["latencies_ms"]
 
+    # 3b. Process text fallback turn
+    text_resp = await client.post(
+        f"/api/voice/session/{call_sid}/text-turn",
+        json={"text": "എന്റെ പേര് അനൂപ് കുമാർ"},
+    )
+    assert text_resp.status_code == 200
+    text_data = text_resp.json()
+    assert text_data["caller_transcript"] == "എന്റെ പേര് അനൂപ് കുമാർ"
+    assert text_data["state"] == "awaiting_confirmation"
+    assert "audio_base64" in text_data
+    assert text_data["latencies_ms"]["stt_ms"] == 0.0
+
     # 4. Hangup call
     hangup_resp = await client.post(f"/api/voice/session/{call_sid}/hangup")
     assert hangup_resp.status_code == 200
