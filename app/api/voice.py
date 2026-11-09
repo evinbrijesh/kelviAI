@@ -23,6 +23,7 @@ from app.bridge.voice_session import VoiceSessionManager
 from app.config import AppConfig, Settings
 from app.llm.language import SUPPORTED_LANGUAGE_CODES
 from app.llm.registry import AdapterRegistry
+from app.llm.transliteration import transliterate_indic
 from app.providers.telephony import TwilioProvider
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ class VoiceStartResponse(BaseModel):
     language: str
     audio_base64: str
     audio_url: str
+    transliteration: str | None = None
     xray: dict[str, Any] | None = None
 
 
@@ -73,7 +75,9 @@ class VoiceTextTurnRequest(BaseModel):
 class VoiceTurnResponse(BaseModel):
     call_sid: str
     caller_transcript: str
+    caller_transliteration: str | None = None
     agent_reply: str
+    agent_transliteration: str | None = None
     state: str
     language: str
     is_terminal: bool
@@ -150,6 +154,7 @@ async def start_voice_session(
     turn = await voice_session.start(emit_greeting=True)
     audio_b64 = base64.b64encode(turn.audio).decode("ascii")
     audio_url = f"/api/voice/session/{voice_session.call_sid}/audio"
+    translit = transliterate_indic(turn.agent_reply, turn.language)
 
     return VoiceStartResponse(
         call_sid=voice_session.call_sid,
@@ -158,6 +163,7 @@ async def start_voice_session(
         language=turn.language,
         audio_base64=audio_b64,
         audio_url=audio_url,
+        transliteration=translit,
         xray=turn.xray,
     )
 
@@ -235,7 +241,9 @@ async def process_voice_turn(
     return VoiceTurnResponse(
         call_sid=call_sid,
         caller_transcript=turn.caller_transcript,
+        caller_transliteration=turn.caller_transliteration,
         agent_reply=turn.agent_reply,
+        agent_transliteration=turn.agent_transliteration,
         state=turn.state.value,
         language=turn.language,
         is_terminal=turn.is_terminal,
@@ -277,7 +285,9 @@ async def process_text_turn(
     return VoiceTurnResponse(
         call_sid=call_sid,
         caller_transcript=turn.caller_transcript,
+        caller_transliteration=turn.caller_transliteration,
         agent_reply=turn.agent_reply,
+        agent_transliteration=turn.agent_transliteration,
         state=turn.state.value,
         language=turn.language,
         is_terminal=turn.is_terminal,

@@ -54,6 +54,17 @@
   #messages li { border-top: 1px solid var(--border); padding: 18px 0; }
   .speaker { font: 12px/1.6 var(--mono); color: var(--muted); }
   .utterance { margin: 8px 0 0; font-size: 19px; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .transliteration {
+    display: inline-block;
+    font: 13px/1.5 var(--mono);
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    margin-top: 6px;
+    font-style: italic;
+  }
   #messages li[data-speaker="agent"] .speaker { color: var(--accent); }
   .playback { margin-top: 24px; border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
   audio { display: block; width: 100%; margin-top: 10px; }

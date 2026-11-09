@@ -8,6 +8,11 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.agent.replies import ReplyTemplates, templates_for
+from app.agent.spoken_datetime import (
+    format_spoken_date,
+    format_spoken_slot,
+    format_spoken_time,
+)
 from app.calls.session_log import CallSessionLog, invoke_tool, start_call
 from app.config import AppConfig
 from app.db.models import Call, CallStatus, EventType
@@ -274,27 +279,31 @@ class AgentSession:
         if extracted_name:
             self.caller_name = extracted_name
 
+        spoken_d = format_spoken_date(day, language=self.language)
+        spoken_t = format_spoken_time(chosen, language=self.language)
+
         if self.caller_name:
             self.state = AgentState.AWAITING_CONFIRMATION
             reply = self._t(
                 "confirming",
                 name=self.caller_name,
-                date=day.isoformat(),
-                time=chosen,
+                date=spoken_d,
+                time=spoken_t,
                 clinic=self.clinic_name,
             )
         else:
             self.state = AgentState.AWAITING_NAME
             if chosen == self.requested_time:
                 reply = self._t(
-                    "available", date=day.isoformat(), time=self.requested_time
+                    "available", date=spoken_d, time=spoken_t
                 )
             else:
+                spoken_chosen = format_spoken_time(chosen, language=self.language)
                 reply = self._t(
                     "nearest",
-                    date=day.isoformat(),
-                    time=self.requested_time,
-                    slot=chosen,
+                    date=spoken_d,
+                    time=format_spoken_time(self.requested_time, language=self.language),
+                    slot=spoken_chosen,
                 )
 
         self.call_log.agent_turn(reply)
@@ -329,11 +338,13 @@ class AgentSession:
                 return reply
 
         self.state = AgentState.AWAITING_CONFIRMATION
+        spoken_d = format_spoken_date(self.chosen_date, language=self.language)
+        spoken_t = format_spoken_time(self.chosen_time, language=self.language)
         reply = self._t(
             "confirming",
             name=self.caller_name,
-            date=self.chosen_date.isoformat(),
-            time=self.chosen_time,
+            date=spoken_d,
+            time=spoken_t,
             clinic=self.clinic_name,
         )
         self.call_log.agent_turn(reply)
@@ -343,14 +354,17 @@ class AgentSession:
         assert self.call_log is not None
         assert self.chosen_date is not None and self.chosen_time is not None
 
+        spoken_d = format_spoken_date(self.chosen_date, language=self.language)
+        spoken_t = format_spoken_time(self.chosen_time, language=self.language)
+
         # 1. Did caller ask what name is saved?
         if self._is_name_query(user_utterance):
             if self.caller_name:
                 reply = self._t(
                     "saved_name_confirm",
                     name=self.caller_name,
-                    date=self.chosen_date.isoformat(),
-                    time=self.chosen_time,
+                    date=spoken_d,
+                    time=spoken_t,
                     clinic=self.clinic_name,
                 )
             else:
@@ -365,8 +379,8 @@ class AgentSession:
             reply = self._t(
                 "confirming",
                 name=self.caller_name,
-                date=self.chosen_date.isoformat(),
-                time=self.chosen_time,
+                date=spoken_d,
+                time=spoken_t,
                 clinic=self.clinic_name,
             )
             self.call_log.agent_turn(reply)
@@ -413,11 +427,15 @@ class AgentSession:
             f"{name} booked an appointment at {self.clinic_name} on "
             f"{booking.get('slot_start')} (reference {self.booking_id})."
         )
+        spoken_slot = format_spoken_slot(
+            booking.get("slot_start") or f"{self.chosen_date} {self.chosen_time}",
+            language=self.language,
+        )
         reply = self._t(
             "booked",
             name=name,
             clinic=self.clinic_name,
-            slot=booking.get("slot_start"),
+            slot=spoken_slot,
             reference=self.booking_id,
         )
         self._finish(CallStatus.COMPLETED, summary, "booked")
@@ -883,11 +901,12 @@ class AgentSession:
             self.state = AgentState.COMPLETED
             new_slot = result.get("new_slot_start") or f"{resolution.date} {resolution.time}"
             summary = f"Booking #{ref} was rescheduled to {new_slot}."
+            spoken_new_slot = format_spoken_slot(new_slot, language=self.language)
             reply = self._t(
                 "rescheduled",
                 clinic=self.clinic_name,
                 reference=ref,
-                slot=new_slot,
+                slot=spoken_new_slot,
             )
             self.call_log.agent_turn(reply)
             self._finish(CallStatus.COMPLETED, summary, "rescheduled")

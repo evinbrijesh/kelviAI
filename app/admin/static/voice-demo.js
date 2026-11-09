@@ -83,7 +83,7 @@ async function request(path, options = {}) {
   } finally { clearTimeout(timeout); }
 }
 
-function addMessage(speaker, text, language) {
+function addMessage(speaker, text, language, transliteration) {
   el.empty.hidden = true;
   const item = document.createElement('li');
   item.dataset.speaker = speaker;
@@ -95,6 +95,14 @@ function addMessage(speaker, text, language) {
   if (languages[language]) utterance.lang = language;
   utterance.textContent = text;
   item.append(label, utterance);
+
+  if (transliteration && transliteration.trim() !== text.trim()) {
+    const translitEl = document.createElement('span');
+    translitEl.className = 'transliteration';
+    translitEl.textContent = `🔤 ${transliteration}`;
+    item.append(translitEl);
+  }
+
   el.messages.append(item);
 }
 
@@ -290,8 +298,8 @@ if (el['toggle-xray'] && el['xray-panel']) {
 }
 
 async function handleTurnResult(turn) {
-  addMessage('caller', turn.caller_transcript || '(No speech detected)', turn.language);
-  addMessage('agent', turn.agent_reply, turn.language);
+  addMessage('caller', turn.caller_transcript || '(No speech detected)', turn.language, turn.caller_transliteration);
+  addMessage('agent', turn.agent_reply, turn.language, turn.agent_transliteration);
   el.language.textContent = languages[turn.language] || turn.language;
   el.state.textContent = turn.state.replaceAll('_', ' ');
   updateXray(turn.xray);
@@ -357,7 +365,7 @@ el.start.addEventListener('click', async () => {
     callSid = start.call_sid;
     el.language.textContent = languages[start.language] || start.language;
     el.state.textContent = start.state.replaceAll('_', ' ');
-    addMessage('agent', start.greeting, start.language);
+    addMessage('agent', start.greeting, start.language, start.transliteration);
     updateXray(start.xray);
     await playReply(start.audio_base64, guidance[start.state]);
   } catch (error) {

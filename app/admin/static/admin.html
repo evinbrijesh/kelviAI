@@ -567,6 +567,17 @@
   .latency { font: 10.5px/1.4 var(--mono); color: var(--faint); }
 
   .say { margin: 0; font-size: 13.5px; }
+  .translit-tag {
+    display: inline-block;
+    margin-top: 4px;
+    font: 11px/1.4 var(--mono);
+    color: var(--faint);
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-style: italic;
+  }
   .payload {
     margin: 0;
     padding: 9px 11px;
@@ -1105,6 +1116,7 @@
 
   function renderEvent(event) {
     const text = typeof event.payload.text === "string" ? event.payload.text : null;
+    const translit = typeof event.payload.transliteration === "string" ? event.payload.transliteration : null;
     return el("li", { class: "event", dataset: { kind: event.event_type } },
       el("span", { class: "seq", text: `#${event.seq}` }),
       el("div", {},
@@ -1114,7 +1126,10 @@
           event.latency_ms != null ? el("span", { class: "latency", text: `${event.latency_ms} ms` }) : null,
         ),
         text
-          ? el("p", { class: "say", text })
+          ? el("div", {},
+              el("p", { class: "say", text }),
+              translit ? el("span", { class: "translit-tag", text: `🔤 ${translit}` }) : null,
+            )
           : el("pre", { class: "payload", text: JSON.stringify(event.payload, null, 2) }),
       ),
     );

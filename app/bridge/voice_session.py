@@ -14,6 +14,7 @@ from app.bridge.audio_utils import (
 from app.config import AppConfig
 from app.llm.interfaces import DateTimeResolver, STTAdapter, TTSAdapter
 from app.llm.language import resolve_language
+from app.llm.transliteration import transliterate_indic
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,8 @@ class VoiceTurnResult:
     state: AgentState
     is_terminal: bool
     language: str
+    caller_transliteration: str | None = None
+    agent_transliteration: str | None = None
     booking_id: str | None = None
     latencies_ms: dict[str, float] = field(default_factory=dict)
     xray: dict[str, Any] = field(default_factory=dict)
@@ -162,9 +165,14 @@ class VoiceSession:
             "total_ms": round(stt_ms + agent_ms + tts_ms, 2),
         }
 
+        caller_translit = transliterate_indic(caller_transcript, detected_language)
+        agent_translit = transliterate_indic(agent_reply, self.agent_session.language)
+
         return VoiceTurnResult(
             caller_transcript=caller_transcript,
+            caller_transliteration=caller_translit,
             agent_reply=agent_reply,
+            agent_transliteration=agent_translit,
             audio=tts_result.audio,
             sample_rate=tts_result.sample_rate,
             audio_format=tts_result.format,
@@ -217,9 +225,14 @@ class VoiceSession:
             "total_ms": round(agent_ms + tts_ms, 2),
         }
 
+        caller_translit = transliterate_indic(clean_text, detected_language)
+        agent_translit = transliterate_indic(agent_reply, self.agent_session.language)
+
         return VoiceTurnResult(
             caller_transcript=clean_text,
+            caller_transliteration=caller_translit,
             agent_reply=agent_reply,
+            agent_transliteration=agent_translit,
             audio=tts_result.audio,
             sample_rate=tts_result.sample_rate,
             audio_format=tts_result.format,

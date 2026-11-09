@@ -43,13 +43,25 @@ class CallSessionLog:
         return event
 
     def user_turn(self, text: str, *, language: str | None = None) -> CallEvent:
+        from app.llm.transliteration import transliterate_indic
+
         payload: dict[str, Any] = {"text": text}
+        translit = transliterate_indic(text, language)
+        if translit and translit != text:
+            payload["transliteration"] = translit
         if language:
             payload["language"] = language
         return self.record(EventType.USER_TURN, payload)
 
-    def agent_turn(self, text: str) -> CallEvent:
-        return self.record(EventType.AGENT_TURN, {"text": text})
+    def agent_turn(self, text: str, *, language: str | None = None) -> CallEvent:
+        from app.llm.transliteration import transliterate_indic
+
+        payload: dict[str, Any] = {"text": text}
+        lang = language or getattr(self.call, "language", None)
+        translit = transliterate_indic(text, lang)
+        if translit and translit != text:
+            payload["transliteration"] = translit
+        return self.record(EventType.AGENT_TURN, payload)
 
     def tool_call(self, tool_name: str, arguments: Mapping[str, Any]) -> CallEvent:
         return self.record(
