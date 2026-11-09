@@ -51,10 +51,14 @@ class GnaniSTTAdapter(STTAdapter):
         raise NotImplementedError(f"STT mode {mode} not yet implemented")
 
     async def _transcribe_rest(self, audio: bytes, **kwargs: Any) -> STTResult:
+        lang = str(kwargs.get("language", self.stt_config.language))
+        if not audio:
+            return STTResult(text="", language=lang, confidence=0.0, duration_ms=0)
+
         files = {"audio_file": ("audio.wav", audio, "audio/wav")}
         data = {
             "model": self.stt_config.model,
-            "language_code": kwargs.get("language", self.stt_config.language),
+            "language_code": lang,
         }
 
         response = await _post_with_retry(self.client, "/stt/v3", files=files, data=data)
@@ -85,6 +89,8 @@ class GnaniTTSAdapter(TTSAdapter):
         )
         # Timbre allows one active request per key, so calls queue instead of racing.
         self._request_lock = asyncio.Lock()
+        self._cache: dict[tuple[str, str, str], TTSResult] = {}
+        self._max_cache_size = 128
 
     async def synthesize(
         self, text: str, mode: TTSMode = TTSMode.REST, **kwargs: Any
@@ -103,6 +109,10 @@ class GnaniTTSAdapter(TTSAdapter):
             or default_voice(language)
             or self.tts_config.voice
         )
+        cache_key = (text.strip(), language, voice)
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         data = {
             "text": text,
             "model": self.tts_config.model,
@@ -124,11 +134,16 @@ class GnaniTTSAdapter(TTSAdapter):
             )
         response.raise_for_status()
 
-        return TTSResult(
+        result = TTSResult(
             audio=response.content,
             format="wav",
             sample_rate=48000,
         )
+        if len(self._cache) >= self._max_cache_size:
+            first_key = next(iter(self._cache))
+            self._cache.pop(first_key, None)
+        self._cache[cache_key] = result
+        return result
 
     async def close(self) -> None:
         await self.client.aclose()
