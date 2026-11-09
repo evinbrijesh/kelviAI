@@ -1,9 +1,9 @@
 const el = Object.fromEntries([
-  'start', 'record', 'end', 'status', 'guidance', 'error', 'timer', 'stt', 'tts',
+  'start', 'record', 'end', 'status', 'guidance', 'error', 'timer', 'stt', 'tts', 'llm',
   'language', 'state', 'empty', 'messages', 'playback', 'reply-audio', 'audio-note',
   'result', 'reference', 'dashboard', 'text-fallback', 'text-form', 'text-input',
   'text-send', 'alt-card', 'alt-text', 'toggle-xray', 'xray-panel', 'xray-badge',
-  'xray-lang', 'xray-resolved', 'xray-tool', 'xray-latency',
+  'xray-lang', 'xray-resolved', 'xray-tool', 'xray-latency', 'xray-stack',
 ].map(id => [id, document.getElementById(id)]));
 const languages = { 'bn-IN': 'Bengali', 'en-IN': 'English', 'gu-IN': 'Gujarati', 'hi-IN': 'Hindi', 'kn-IN': 'Kannada', 'ml-IN': 'Malayalam', 'mr-IN': 'Marathi', 'pa-IN': 'Punjabi', 'ta-IN': 'Tamil', 'te-IN': 'Telugu' };
 const guidance = {
@@ -287,6 +287,14 @@ function updateXray(xray) {
     const l = xray.latencies_ms || {};
     el['xray-latency'].textContent = `STT: ${l.stt_ms || 0}ms | Agent: ${l.agent_ms || 0}ms | TTS: ${l.tts_ms || 0}ms`;
   }
+  if (el['xray-stack']) {
+    if (xray.sovereign_stack) {
+      const s = xray.sovereign_stack;
+      el['xray-stack'].textContent = `${s.stt} → ${s.reasoning} → ${s.tts}`;
+    } else {
+      el['xray-stack'].textContent = 'Prisma v2.5 → Evon v3.3 → Timbre v2.5';
+    }
+  }
 }
 
 if (el['toggle-xray'] && el['xray-panel']) {
@@ -402,6 +410,7 @@ try {
   const status = await request('/api/voice/status');
   el.stt.textContent = status.stt_model;
   el.tts.textContent = status.tts_model;
+  if (el.llm) el.llm.textContent = status.reasoning_model || 'Evon v3.3 (hybrid)';
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia || !window.AudioWorkletNode) {
     throw new Error('This demo needs microphone capture and AudioWorklet support. Open it in a current browser on localhost or HTTPS.');
   }

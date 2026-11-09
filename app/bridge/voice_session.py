@@ -66,12 +66,22 @@ class VoiceSession:
         return self.agent_session.language
 
     def _build_xray(self, latencies_ms: dict[str, float]) -> dict[str, Any]:
+        engine = (
+            self.agent_session.last_resolved.get("engine")
+            if self.agent_session.last_resolved
+            else None
+        ) or "evon-v3.3 (hybrid)"
         return {
             "language": self.agent_session.language,
             "state": self.agent_session.state.value,
             "resolved_datetime": self.agent_session.last_resolved,
             "tool_invoked": self.agent_session.last_tool_invoked,
             "latencies_ms": latencies_ms,
+            "sovereign_stack": {
+                "stt": self.agent_session.config.model.stt.model,
+                "reasoning": f"Evon v3.3 [{engine}]",
+                "tts": self.agent_session.config.model.tts.model,
+            },
         }
 
     async def start(self, *, emit_greeting: bool = True) -> VoiceTurnResult:
