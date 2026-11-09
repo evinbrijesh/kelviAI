@@ -26,6 +26,7 @@ class AgentState(str, Enum):
     CLARIFYING = "clarifying"
     AWAITING_NAME = "awaiting_name"
     AWAITING_CONFIRMATION = "awaiting_confirmation"
+    AWAITING_CANCELLATION = "awaiting_cancellation"
     COMPLETED = "completed"
     FAILED = "failed"
     TRANSFERRED = "transferred"
@@ -117,7 +118,12 @@ class AgentSession:
         self.call_log.user_turn(user_utterance, language=self.language)
 
         if self.state in (AgentState.AWAITING_SLOT, AgentState.CLARIFYING):
+            if self._is_cancellation_intent(user_utterance):
+                return await self._handle_cancellation_step(user_utterance)
             return await self._handle_slot_request(user_utterance)
+
+        if self.state == AgentState.AWAITING_CANCELLATION:
+            return await self._handle_cancellation_step(user_utterance)
 
         if self.state == AgentState.AWAITING_NAME:
             return await self._handle_name_step(user_utterance)
@@ -273,7 +279,23 @@ class AgentSession:
         if extracted:
             self.caller_name = extracted
         elif not self.caller_name:
-            self.caller_name = user_utterance.strip().split(".")[0]
+            if self._is_positive_confirmation(user_utterance):
+                # Caller accepted the suggested slot, but has not provided their name yet
+                reply = self._t("ask_name")
+                self.call_log.agent_turn(reply)
+                return reply
+
+            clean_candidate = user_utterance.strip().split(".")[0].strip()
+            if (
+                len(clean_candidate) >= 2
+                and not self._is_positive_confirmation(clean_candidate)
+                and not clean_candidate.isdigit()
+            ):
+                self.caller_name = clean_candidate
+            else:
+                reply = self._t("ask_name")
+                self.call_log.agent_turn(reply)
+                return reply
 
         self.state = AgentState.AWAITING_CONFIRMATION
         reply = self._t(
@@ -520,8 +542,25 @@ class AgentSession:
             "సరే",
             "బుక్",
             "నిర్ధారించు",
-            "ಹೌದು",
-            "ಸರಿ",
+            "ആയിക്കോട്ടെ",
+            "അപ്പം മതി",
+            "അപ്പോ മതി",
+            "മതി",
+            "ശരിയാ",
+            "ശരിയാണ്",
+            "ഉറപ്പിക്കാം",
+            "പാക്കിക്കോ",
+            "ഓക്കെ",
+            "തീർച്ചയായും",
+            "ആണ്",
+            "ആവട്ടെ",
+            "aayikkotte",
+            "appam mathi",
+            "mathi",
+            "urappikkam",
+            "sheriyaa",
+            "ഹൗദു",
+            "സരി",
             "ಬುಕ್",
             "ದೃಢೀಕರಿಸು",
             "હા",
@@ -537,6 +576,68 @@ class AgentSession:
         return re.search(
             rf"(?<![{boundary}])(?:{positive_pattern})(?![{boundary}])", text_lower
         ) is not None
+
+    def _is_cancellation_intent(self, text: str) -> bool:
+        cancel_terms = (
+            "റദ്ദാക്ക",
+            "റദ്ദാക്കണം",
+            "ക്യാൻസൽ",
+            "ക്യാന്സല്",
+            "cancel",
+            "cancellation",
+            "cancelling",
+            "रद्द",
+            "कैंसल",
+            "कैंसिल",
+        )
+        text_lower = text.lower()
+        return any(term in text_lower for term in cancel_terms)
+
+    def _extract_reference(self, text: str) -> str | None:
+        match = re.search(
+            r"(?:റഫറൻസ്|റഫറന്സ്|reference|ref|booking|നമ്പർ|number|no\.?)\s*[:#-]?\s*(\d+)",
+            text,
+            re.IGNORECASE,
+        )
+        if match:
+            return match.group(1)
+        numbers = re.findall(r"\b\d+\b", text)
+        return numbers[0] if numbers else None
+
+    async def _handle_cancellation_step(self, user_utterance: str) -> str:
+        assert self.call_log is not None
+        ref = self._extract_reference(user_utterance)
+        if not ref:
+            self.state = AgentState.AWAITING_CANCELLATION
+            reply = self._t("ask_cancel_ref")
+            self.call_log.agent_turn(reply)
+            return reply
+
+        result = await self._safe_invoke_tool("cancel_booking", {"booking_id": ref})
+        status = result.get("status")
+        if status == "cancelled":
+            self.state = AgentState.COMPLETED
+            summary = f"Booking #{ref} was cancelled by caller."
+            reply = self._t("cancelled", clinic=self.clinic_name, reference=ref)
+            self.call_log.agent_turn(reply)
+            self._finish(CallStatus.COMPLETED, summary, "cancelled")
+            return reply
+
+        if status == "already_cancelled":
+            self.state = AgentState.COMPLETED
+            summary = f"Booking #{ref} was already cancelled."
+            reply = (
+                f"റഫറൻസ് {ref} ഇതിനകം റദ്ദാക്കിയതാണ്. നന്ദി!"
+                if self.language.startswith("ml")
+                else f"Booking #{ref} is already cancelled."
+            )
+            self.call_log.agent_turn(reply)
+            self._finish(CallStatus.COMPLETED, summary, "already_cancelled")
+            return reply
+
+        reply = self._t("cancel_not_found")
+        self.call_log.agent_turn(reply)
+        return reply
 
     def _finish(self, status: CallStatus, summary: str, outcome: str) -> None:
         assert self.call_log is not None

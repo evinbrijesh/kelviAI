@@ -1,0 +1,84 @@
+agent:
+  name: "spice-garden-reservations"
+  language: "ml-IN"
+  greeting: "നമസ്കാരം, സ്പൈസ് ഗാർഡൻ റസ്റ്റോറന്റിലേക്ക് സ്വാഗതം. ടേബിൾ റിസർവേഷനായി ഞാൻ എങ്ങനെ സഹായിക്കാം?"
+  persona: "Polite restaurant reservation assistant for table bookings"
+  rules:
+    - "Always verify party size and preferred dining time"
+    - "Confirm indoor or outdoor seating preference"
+    - "Repeat reservation details before finalizing"
+    - "Transfer to front desk if caller has special event inquiries"
+
+model:
+  provider: "gnani"
+  stt:
+    model: "prisma-v3.0"
+    language: "indic-auto"
+  tts:
+    model: "timbre-v2.5"
+    voice: "Reshma"
+    voices:
+      ml-IN: "Reshma"
+      en-IN: "Kaveri"
+      hi-IN: "Nalini"
+  date_time_resolver: "custom"
+
+tools:
+  - name: "check_table_availability"
+    description: "Check table availability for a specific date, time, and party size"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        date:
+          type: "string"
+          description: "Reservation date in YYYY-MM-DD format"
+        time:
+          type: "string"
+          description: "Preferred dining time in HH:MM format"
+        guests:
+          type: "integer"
+          description: "Number of guests"
+      required: ["date", "time"]
+  - name: "reserve_table"
+    description: "Confirm and book a dining table"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        caller_name:
+          type: "string"
+          description: "Name for the reservation"
+        date:
+          type: "string"
+          description: "Reservation date in YYYY-MM-DD format"
+        time:
+          type: "string"
+          description: "Dining time in HH:MM format"
+        guests:
+          type: "integer"
+          description: "Number of guests"
+        seating:
+          type: "string"
+          description: "Seating area preference: indoor or outdoor"
+      required: ["caller_name", "date", "time"]
+  - name: "cancel_reservation"
+    description: "Cancel an existing table reservation"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        booking_id:
+          type: "string"
+          description: "Reservation reference number"
+      required: ["booking_id"]
+  - name: "transfer_to_human"
+    description: "Transfer call to restaurant manager"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        reason:
+          type: "string"
+          description: "Reason for transfer"
+      required: ["reason"]

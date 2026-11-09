@@ -1,0 +1,81 @@
+agent:
+  name: "kerala-appliance-service"
+  language: "ml-IN"
+  greeting: "നമസ്കാരം, സർവീസ് കെയറിലേക്ക് സ്വാഗതം. വീട്ടുപകരണങ്ങളുടെ സർവീസ് ബുക്കിംഗിനായി എങ്ങനെ സഹായിക്കാം?"
+  persona: "Support assistant for scheduling appliance repair and technician visits"
+  rules:
+    - "Identify appliance type (washing machine, refrigerator, AC) and brand"
+    - "Record a brief description of the reported issue"
+    - "Confirm customer phone number and service address"
+    - "Transfer to customer executive if emergency electrical repair is requested"
+
+model:
+  provider: "gnani"
+  stt:
+    model: "prisma-v3.0"
+    language: "indic-auto"
+  tts:
+    model: "timbre-v2.5"
+    voice: "Reshma"
+    voices:
+      ml-IN: "Reshma"
+      en-IN: "Kaveri"
+      hi-IN: "Nalini"
+  date_time_resolver: "custom"
+
+tools:
+  - name: "check_technician_slots"
+    description: "Check available technician visit windows for an area"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        date:
+          type: "string"
+          description: "Service date in YYYY-MM-DD format"
+        area:
+          type: "string"
+          description: "Locality or city name"
+      required: ["date"]
+  - name: "book_service_visit"
+    description: "Book an appliance technician service visit"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        customer_name:
+          type: "string"
+          description: "Name of the customer"
+        date:
+          type: "string"
+          description: "Visit date in YYYY-MM-DD format"
+        time:
+          type: "string"
+          description: "Visit window in HH:MM format"
+        appliance:
+          type: "string"
+          description: "Appliance category and brand"
+        issue:
+          type: "string"
+          description: "Short description of the fault"
+      required: ["customer_name", "date", "time", "appliance"]
+  - name: "cancel_service"
+    description: "Cancel scheduled technician visit"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        service_id:
+          type: "string"
+          description: "Service request reference ID"
+      required: ["service_id"]
+  - name: "transfer_to_human"
+    description: "Transfer call to human service manager"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        reason:
+          type: "string"
+          description: "Reason for transfer"
+      required: ["reason"]

@@ -22,6 +22,10 @@ class ReplyTemplates:
     no_open_day: str
     hangup: str
     thanks: str
+    ask_name: str = "ദയവായി പേര് വ്യക്തമാക്കാമോ?"
+    cancelled: str = "അപ്പോയിന്റ്മെന്റ് വിജയകരമായി റദ്ദാക്കി (റഫറൻസ് {reference}). നന്ദി!"
+    cancel_not_found: str = "ക്ഷമിക്കണം, ഈ റഫറൻസിൽ അപ്പോയിന്റ്മെന്റ് കണ്ടെത്താൻ കഴിഞ്ഞില്ല."
+    ask_cancel_ref: str = "അപ്പോയിന്റ്മെന്റ് റദ്ദാക്കാൻ ദയവായി ബുക്കിംഗ് റഫറൻസ് നമ്പർ വ്യക്തമാക്കാമോ?"
 
 
 _TEMPLATES: dict[str, ReplyTemplates] = {
@@ -53,6 +57,10 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         no_open_day="അടുത്ത ഒരാഴ്ചയിൽ ഒരു ഓപ്പൺ ക്ലിനിക് ദിവസവും കണ്ടെത്തിയില്ല.",
         hangup="ഉപഭോക്താവ് അഭ്യർത്ഥന പൂർത്തിയാക്കുന്നതിന് മുമ്പ് കോൾ വിച്ഛേദിച്ചു.",
         thanks="നന്ദി, വീണ്ടും വിളിക്കുക.",
+        ask_name="നന്ദി. ആരുടെ പേരിലാണ് അപ്പോയിന്റ്മെന്റ് ബുക്ക് ചെയ്യേണ്ടത്?",
+        cancelled="{clinic}-ൽ {reference}-ാം നമ്പർ അപ്പോയിന്റ്മെന്റ് വിജയകരമായി റദ്ദാക്കി. നന്ദി!",
+        cancel_not_found="ക്ഷമിക്കണം, ഈ റഫറൻസിൽ അപ്പോയിന്റ്മെന്റ് കണ്ടെത്താൻ കഴിഞ്ഞില്ല.",
+        ask_cancel_ref="അപ്പോയിന്റ്മെന്റ് റദ്ദാക്കാൻ ദയവായി ബുക്കിംഗ് റഫറൻസ് നമ്പർ വ്യക്തമാക്കാമോ?",
     ),
     "hi-IN": ReplyTemplates(
         clarification="क्षमा करें, कृपया बताइए कि आप कौन सी तारीख और समय चाहते हैं?",
@@ -260,6 +268,13 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         no_open_day="No open clinic day was found in the next week.",
         hangup="Caller hung up before completing the request.",
         thanks="Thank you, please call again.",
+        ask_name="Thank you. Could you please share your name for the booking?",
+        cancelled=(
+            "Your appointment at {clinic} (reference {reference}) has been "
+            "successfully cancelled. Thank you!"
+        ),
+        cancel_not_found="Sorry, no booking was found matching that reference.",
+        ask_cancel_ref="Could you please share your booking reference number to cancel?",
     ),
 }
 

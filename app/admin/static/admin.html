@@ -436,6 +436,35 @@
   .badge[data-tone="error"] { color: var(--error); background: rgba(255, 141, 128, 0.08); border-color: rgba(255, 141, 128, 0.18); }
   .badge[data-tone="info"] { color: var(--accent); background: rgba(142, 245, 197, 0.07); border-color: rgba(142, 245, 197, 0.16); }
 
+  .slot-grid-panel { margin-bottom: 20px; }
+  .slot-grid-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .slot-grid-head h3 { font: 600 11px/1.4 var(--mono); text-transform: uppercase; letter-spacing: 0.12em; color: var(--faint); margin: 0; }
+  .slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+    gap: 8px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid var(--border);
+  }
+  .slot-chip {
+    padding: 7px 9px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .slot-chip.is-booked {
+    border-color: rgba(142, 245, 197, 0.35);
+    background: rgba(142, 245, 197, 0.08);
+  }
+  .slot-chip .chip-time { font: 600 12px/1.2 var(--mono); color: var(--text); }
+  .slot-chip .chip-patient { font-size: 11px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .slot-chip .chip-open { font-size: 10.5px; color: var(--muted); }
+
   .link {
     border: 0;
     border-bottom: 1px solid rgba(142, 245, 197, 0.3);
@@ -716,6 +745,16 @@
     }) + " IST";
   }
 
+  function formatTimeSlot(value) {
+    if (!value) return null;
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(value));
+  }
+
   function formatDuration(start, end) {
     if (!start || !end) return null;
     const seconds = Math.max(0, Math.round((new Date(end) - new Date(start)) / 1000));
@@ -893,15 +932,51 @@
       ),
     ));
 
-    dom.listBody.replaceChildren(el("div", { class: "table-wrap" },
-      el("table", { class: "stack-table bookings-table" },
-        el("thead", {}, el("tr", {},
-          ...["Slot", "Patient", "Caller", "Clinic", "Status", "Call"]
-            .map((label) => el("th", { text: label, scope: "col" })),
-        )),
-        body,
+    const CLINIC_SLOTS = [
+      "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+      "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
+      "15:00", "15:30", "16:00", "16:30"
+    ];
+
+    const bookedMap = {};
+    for (const b of state.bookings) {
+      if (b.status === "confirmed" && b.slot_start) {
+        const timeKey = formatTimeSlot(b.slot_start);
+        if (timeKey) bookedMap[timeKey] = b.patient_name;
+      }
+    }
+
+    const gridChips = CLINIC_SLOTS.map((slot) => {
+      const patient = bookedMap[slot];
+      const isBooked = Boolean(patient);
+      return el("div", { class: `slot-chip ${isBooked ? "is-booked" : ""}` },
+        el("span", { class: "chip-time", text: slot }),
+        isBooked
+          ? el("span", { class: "chip-patient", text: patient, title: patient })
+          : el("span", { class: "chip-open", text: "Available" }),
+      );
+    });
+
+    const scheduleGrid = el("div", { class: "slot-grid-panel" },
+      el("div", { class: "slot-grid-head" },
+        el("h3", { text: "Visual Schedule Grid" }),
+        el("span", { class: "muted mono", style: "font-size: 11px;", text: "09:00 - 17:00 IST" }),
       ),
-    ));
+      el("div", { class: "slot-grid" }, ...gridChips),
+    );
+
+    dom.listBody.replaceChildren(
+      scheduleGrid,
+      el("div", { class: "table-wrap" },
+        el("table", { class: "stack-table bookings-table" },
+          el("thead", {}, el("tr", {},
+            ...["Slot", "Patient", "Caller", "Clinic", "Status", "Call"]
+              .map((label) => el("th", { text: label, scope: "col" })),
+          )),
+          body,
+        ),
+      ),
+    );
   }
 
   function renderList({ preserveFocus = false } = {}) {

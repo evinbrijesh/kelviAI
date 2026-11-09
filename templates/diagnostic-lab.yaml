@@ -1,0 +1,81 @@
+agent:
+  name: "kerala-diagnostics-scheduling"
+  language: "ml-IN"
+  greeting: "നമസ്കാരം, കേരള ഡയഗ്നോസ്റ്റിക്സിലേക്ക് സ്വാഗതം. ഹോം ബ്ലഡ് ടെസ്റ്റ് കളക്ഷൻ ബുക്കിംഗിനായി എങ്ങനെ സഹായിക്കാം?"
+  persona: "Helpful diagnostic laboratory assistant for home sample collection"
+  rules:
+    - "Confirm whether fasting is required for the prescribed test package"
+    - "Always verify home address and landmark for phlebotomist visit"
+    - "Confirm preferred morning time slot (e.g. 06:30 - 09:30 AM)"
+    - "Transfer to lab coordinator if test package is unspecified"
+
+model:
+  provider: "gnani"
+  stt:
+    model: "prisma-v3.0"
+    language: "indic-auto"
+  tts:
+    model: "timbre-v2.5"
+    voice: "Reshma"
+    voices:
+      ml-IN: "Reshma"
+      en-IN: "Kaveri"
+      hi-IN: "Nalini"
+  date_time_resolver: "custom"
+
+tools:
+  - name: "check_slot_availability"
+    description: "Check home sample collection time slots for a specific date"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        date:
+          type: "string"
+          description: "Target collection date in YYYY-MM-DD format"
+        time_slot:
+          type: "string"
+          description: "Preferred morning window (e.g. early_morning, standard)"
+      required: ["date"]
+  - name: "book_home_collection"
+    description: "Schedule home blood sample collection"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        patient_name:
+          type: "string"
+          description: "Name of the patient"
+        date:
+          type: "string"
+          description: "Date in YYYY-MM-DD format"
+        time:
+          type: "string"
+          description: "Collection time in HH:MM format"
+        test_package:
+          type: "string"
+          description: "Requested test or panel name"
+        address:
+          type: "string"
+          description: "Home address and pin code"
+      required: ["patient_name", "date", "time"]
+  - name: "cancel_collection"
+    description: "Cancel scheduled sample collection"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        booking_id:
+          type: "string"
+          description: "Booking reference ID"
+      required: ["booking_id"]
+  - name: "transfer_to_human"
+    description: "Transfer call to lab supervisor"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        reason:
+          type: "string"
+          description: "Reason for transfer"
+      required: ["reason"]

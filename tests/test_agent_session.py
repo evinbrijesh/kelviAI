@@ -418,3 +418,120 @@ async def test_agent_session_tool_permission_enforcement(
 
         with pytest.raises(ToolError, match="Tool 'book_slot' is not declared or enabled"):
             await agent._safe_invoke_tool("book_slot", {})
+
+
+@pytest.mark.asyncio
+async def test_agent_session_alternative_slot_acceptance_prompts_for_name(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    target_date = next_working_day()
+
+    # Pre-book 10:00 to force nearest slot alternative
+    with database.session() as session:
+        booking = Booking(
+            calendar_id=clinic_calendar.id,
+            patient_name="Existing Patient",
+            caller_phone="+919000000099",
+            slot_start=datetime.combine(
+                target_date, datetime.strptime("10:00", "%H:%M").time(), tzinfo=TZ
+            ).astimezone(UTC),
+            slot_end=datetime.combine(
+                target_date, datetime.strptime("10:30", "%H:%M").time(), tzinfo=TZ
+            ).astimezone(UTC),
+            status=str(BookingStatus.CONFIRMED),
+        )
+        session.add(booking)
+        session.commit()
+
+    resolver = CustomDateTimeResolver()
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000007",
+        )
+        agent.start()
+
+        # Turn 1: Request 10:00 AM (which is taken)
+        r1 = await agent.process_turn("നാളെ രാവിലെ 10 മണിക്ക്")
+        assert "10:00" in r1 and "10:30" in r1 or "11:00" in r1
+        assert agent.state == AgentState.AWAITING_NAME
+
+        # Turn 2: Accept the alternative slot colloquially
+        r2 = await agent.process_turn("ആയിക്കോട്ടെ, അപ്പം മതി")
+        assert agent.state == AgentState.AWAITING_NAME
+        assert "പേരിലാണ്" in r2 or "പേര്" in r2  # Explicitly asks for name
+        assert agent.caller_name is None  # Does NOT save "ആയിക്കോട്ടെ, അപ്പം മതി" as name
+
+        # Turn 3: Provide name
+        r3 = await agent.process_turn("എന്റെ പേര് രാഹുൽ")
+        assert agent.state == AgentState.AWAITING_CONFIRMATION
+        assert agent.caller_name == "രാഹുൽ"
+        assert "രാഹുൽ" in r3
+
+        # Turn 4: Confirm
+        r4 = await agent.process_turn("യെസ്, അത് പാക്കിക്കോ")
+        assert agent.state == AgentState.COMPLETED
+        assert "റഫറൻസ്" in r4
+
+
+@pytest.mark.asyncio
+async def test_agent_session_cancellation_flow(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    from app.config import ToolConfig, load_config
+
+    config = load_config(agent_config)
+    config.tools.append(
+        ToolConfig(name="cancel_booking", description="Cancel a booking", enabled=True)
+    )
+    target_date = next_working_day()
+
+    booking_id: int
+    with database.session() as session:
+        booking = Booking(
+            calendar_id=clinic_calendar.id,
+            patient_name="Rahul Nair",
+            caller_phone="+919000000008",
+            slot_start=datetime.combine(
+                target_date, datetime.strptime("14:00", "%H:%M").time(), tzinfo=TZ
+            ).astimezone(UTC),
+            slot_end=datetime.combine(
+                target_date, datetime.strptime("14:30", "%H:%M").time(), tzinfo=TZ
+            ).astimezone(UTC),
+            status=str(BookingStatus.CONFIRMED),
+        )
+        session.add(booking)
+        session.commit()
+        session.refresh(booking)
+        booking_id = booking.id
+
+    resolver = CustomDateTimeResolver()
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000008",
+        )
+        agent.start()
+
+        # Turn 1: Ask for cancellation without reference number
+        r1 = await agent.process_turn("എനിക്ക് എന്റെ ബുക്കിംഗ് റദ്ദാക്കണം")
+        assert agent.state == AgentState.AWAITING_CANCELLATION
+        assert "റഫറൻസ്" in r1
+
+        # Turn 2: Provide reference number
+        r2 = await agent.process_turn(f"റഫറൻസ് {booking_id}")
+        assert agent.state == AgentState.COMPLETED
+        assert "റദ്ദാക്കി" in r2
+
+    # Verify booking status in database
+    with database.session() as session:
+        updated = session.get(Booking, booking_id)
+        assert updated is not None
+        assert updated.status == str(BookingStatus.CANCELLED)
