@@ -180,7 +180,7 @@ async def test_admin_ui_serves_dashboard(client: AsyncClient) -> None:
     response = await client.get("/admin/ui")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
-    assert "VaaniKit" in response.text
+    assert "KelviAI" in response.text
     assert "non-production" in response.text
     assert "data-asciify-background" in response.text
     assert "/admin/static/asciify.bundle.js" in response.text

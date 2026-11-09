@@ -1,7 +1,7 @@
 agent:
-  name: "vaanikit-demo"
+  name: "kelviai-demo"
   language: "ml-IN"
-  greeting: "നമസ്കാരം, ഞാൻ വാണികിറ്റ് അസിസ്റ്റന്റ് ആണ്. എങ്ങനെ സഹായിക്കാം?"
+  greeting: "നമസ്കാരം, ഞാൻ കേൾവി AI അസിസ്റ്റന്റ് ആണ്. എങ്ങനെ സഹായിക്കാം?"
   persona: "Helpful medical appointment assistant"
   rules:
     - "Always confirm date and time before booking"

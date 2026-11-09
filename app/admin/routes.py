@@ -155,7 +155,7 @@ def _resolved(events: Sequence[CallEvent]) -> ResolvedDateTime | None:
 def admin_index() -> AdminIndex:
     return AdminIndex(
         environment=ENVIRONMENT,
-        notice="VaaniKit demo admin API. Synthetic data only; not production secure.",
+        notice="KelviAI demo admin API. Synthetic data only; not production secure.",
         endpoints=[
             "/admin/ui",
             "/admin/calls",

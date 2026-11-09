@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Application resources closed cleanly")
 
 
-app = FastAPI(title="VaaniKit", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="KelviAI", version="0.1.0", lifespan=lifespan)
 app.include_router(admin_router)
 app.include_router(voice_router)
 app.mount("/admin/static", StaticFiles(directory=STATIC_DIR), name="admin-static")

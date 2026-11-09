@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23000'/%3E%3Cpath d='M9 10l7 13 7-13' fill='none' stroke='%238ef5c5' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<title>VaaniKit admin</title>
+<title>KelviAI admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Redaction+50:ital,wght@0,400;0,700;1,400&family=Inter+Tight:wght@400..700&family=JetBrains+Mono:wght@400..700&display=swap">
@@ -640,8 +640,8 @@
 
 <header class="topbar">
   <div class="brand">
-    <span class="mark" aria-hidden="true">V</span>
-    <span class="brand-text">VaaniKit</span>
+    <span class="mark" aria-hidden="true">K</span>
+    <span class="brand-text">KelviAI</span>
   </div>
   <span class="pill"><span class="dot" aria-hidden="true"></span>non-production</span>
 </header>
@@ -680,7 +680,7 @@
     <div id="detail-body"></div>
   </section>
 
-  <footer>VaaniKit · synthetic clinic demo · JSON API at <span class="mono">/admin</span></footer>
+  <footer>KelviAI · synthetic clinic demo · JSON API at <span class="mono">/admin</span></footer>
 </main>
 
 <script>
@@ -1189,14 +1189,14 @@
     dom.dashboard.hidden = true;
     dom.detail.hidden = false;
     dom.detailBody.replaceChildren();
-    document.title = `Call #${id} · VaaniKit admin`;
+    document.title = `Call #${id} · KelviAI admin`;
     setStatus(dom.detailStatus, `Loading call #${id}…`, "loading");
 
     try {
       const detail = await getJSON(`/admin/calls/${id}`);
       setStatus(dom.detailStatus, "", "");
       renderDetail(detail);
-      document.title = `${detail.call_sid} · VaaniKit admin`;
+      document.title = `${detail.call_sid} · KelviAI admin`;
     } catch (error) {
       showError(dom.detailStatus, error, () => openCall(id), `Could not load call #${id}`);
     }
@@ -1213,7 +1213,7 @@
     if (match) {
       openCall(Number(match[1]));
     } else {
-      document.title = "VaaniKit admin";
+      document.title = "KelviAI admin";
       loadDashboard();
     }
   }

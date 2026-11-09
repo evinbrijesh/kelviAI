@@ -36,7 +36,7 @@ async def test_browser_voice_demo_is_separate_from_admin(client: AsyncClient) ->
     response = await client.get("/demo")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
-    assert "Talk to VaaniKit" in response.text
+    assert "Talk to KelviAI" in response.text
     assert "/admin/static/voice-demo.js" in response.text
     assert "Use fictional names only" in response.text
     assert "Non-production demo" in response.text

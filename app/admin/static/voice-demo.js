@@ -89,7 +89,7 @@ function addMessage(speaker, text, language) {
   item.dataset.speaker = speaker;
   const label = document.createElement('span');
   label.className = 'speaker';
-  label.textContent = speaker === 'caller' ? 'You' : 'VaaniKit';
+  label.textContent = speaker === 'caller' ? 'You' : 'KelviAI';
   const utterance = document.createElement('p');
   utterance.className = 'utterance';
   if (languages[language]) utterance.lang = language;
@@ -128,7 +128,7 @@ async function playReply(base64, instruction, terminal = false) {
     }
   };
   el['reply-audio'].addEventListener('ended', audioEnded, { once: true });
-  setMode('speaking', 'VaaniKit is speaking', instruction);
+  setMode('speaking', 'KelviAI is speaking', instruction);
   try { await el['reply-audio'].play(); }
   catch {
     if (turnGeneration !== generation || mode !== 'speaking') return;
