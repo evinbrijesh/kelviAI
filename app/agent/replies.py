@@ -26,6 +26,17 @@ class ReplyTemplates:
     cancelled: str = "അപ്പോയിന്റ്മെന്റ് വിജയകരമായി റദ്ദാക്കി (റഫറൻസ് {reference}). നന്ദി!"
     cancel_not_found: str = "ക്ഷമിക്കണം, ഈ റഫറൻസിൽ അപ്പോയിന്റ്മെന്റ് കണ്ടെത്താൻ കഴിഞ്ഞില്ല."
     ask_cancel_ref: str = "അപ്പോയിന്റ്മെന്റ് റദ്ദാക്കാൻ ദയവായി ബുക്കിംഗ് റഫറൻസ് നമ്പർ വ്യക്തമാക്കാമോ?"
+    rescheduled: str = (
+        "{clinic}-ൽ {reference}-ാം നമ്പർ അപ്പോയിന്റ്മെന്റ് {slot} "
+        "സമയത്തേക്ക് മാറ്റി നിശ്ചയിച്ചു. നന്ദി!"
+    )
+    ask_reschedule_ref: str = (
+        "അപ്പോയിന്റ്മെന്റ് മാറ്റുന്നതിനായി ദയവായി ബുക്കിംഗ് റഫറൻസ് നമ്പർ വ്യക്തമാക്കാമോ?"
+    )
+    ask_reschedule_slot: str = "റഫറൻസ് {reference}-ന് ഏത് പുതിയ തീയതിയും സമയവുമാണ് വേണ്ടത്?"
+    reschedule_not_found: str = (
+        "ക്ഷമിക്കണം, മാറ്റിവെക്കാൻ ഈ റഫറൻസിൽ അപ്പോയിന്റ്മെന്റ് കണ്ടെത്താൻ കഴിഞ്ഞില്ല."
+    )
 
 
 _TEMPLATES: dict[str, ReplyTemplates] = {
@@ -275,6 +286,13 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         ),
         cancel_not_found="Sorry, no booking was found matching that reference.",
         ask_cancel_ref="Could you please share your booking reference number to cancel?",
+        rescheduled=(
+            "Your appointment at {clinic} (reference {reference}) has been "
+            "rescheduled to {slot}. Thank you!"
+        ),
+        ask_reschedule_ref="Could you please share your booking reference number to reschedule?",
+        ask_reschedule_slot="What new date and time would you like for reference {reference}?",
+        reschedule_not_found="Sorry, no booking was found matching that reference to reschedule.",
     ),
 }
 

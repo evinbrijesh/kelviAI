@@ -30,6 +30,7 @@ class VoiceTurnResult:
     language: str
     booking_id: str | None = None
     latencies_ms: dict[str, float] = field(default_factory=dict)
+    xray: dict[str, Any] = field(default_factory=dict)
 
 
 class VoiceSession:
@@ -61,6 +62,15 @@ class VoiceSession:
     def language(self) -> str:
         return self.agent_session.language
 
+    def _build_xray(self, latencies_ms: dict[str, float]) -> dict[str, Any]:
+        return {
+            "language": self.agent_session.language,
+            "state": self.agent_session.state.value,
+            "resolved_datetime": self.agent_session.last_resolved,
+            "tool_invoked": self.agent_session.last_tool_invoked,
+            "latencies_ms": latencies_ms,
+        }
+
     async def start(self, *, emit_greeting: bool = True) -> VoiceTurnResult:
         """Start agent session, synthesize greeting, and commit initial turn."""
         greeting_text = self.agent_session.start(emit_greeting=emit_greeting)
@@ -74,6 +84,7 @@ class VoiceSession:
 
         # Persist initial call turn to DB so admin dashboard reflects it immediately
         self.agent_session.session.commit()
+        latencies = {"tts_ms": tts_ms}
 
         return VoiceTurnResult(
             caller_transcript="",
@@ -85,7 +96,8 @@ class VoiceSession:
             is_terminal=False,
             language=self.agent_session.language,
             booking_id=None,
-            latencies_ms={"tts_ms": tts_ms},
+            latencies_ms=latencies,
+            xray=self._build_xray(latencies),
         )
 
     async def process_turn(
@@ -143,6 +155,13 @@ class VoiceSession:
             AgentState.TRANSFERRED,
         )
 
+        latencies = {
+            "stt_ms": stt_ms,
+            "agent_ms": agent_ms,
+            "tts_ms": tts_ms,
+            "total_ms": round(stt_ms + agent_ms + tts_ms, 2),
+        }
+
         return VoiceTurnResult(
             caller_transcript=caller_transcript,
             agent_reply=agent_reply,
@@ -153,12 +172,8 @@ class VoiceSession:
             is_terminal=is_terminal,
             language=self.agent_session.language,
             booking_id=self.agent_session.booking_id,
-            latencies_ms={
-                "stt_ms": stt_ms,
-                "agent_ms": agent_ms,
-                "tts_ms": tts_ms,
-                "total_ms": round(stt_ms + agent_ms + tts_ms, 2),
-            },
+            latencies_ms=latencies,
+            xray=self._build_xray(latencies),
         )
 
     async def process_text_turn(
@@ -195,6 +210,12 @@ class VoiceSession:
             AgentState.FAILED,
             AgentState.TRANSFERRED,
         )
+        latencies = {
+            "stt_ms": 0.0,
+            "agent_ms": agent_ms,
+            "tts_ms": tts_ms,
+            "total_ms": round(agent_ms + tts_ms, 2),
+        }
 
         return VoiceTurnResult(
             caller_transcript=clean_text,
@@ -206,12 +227,8 @@ class VoiceSession:
             is_terminal=is_terminal,
             language=self.agent_session.language,
             booking_id=self.agent_session.booking_id,
-            latencies_ms={
-                "stt_ms": 0.0,
-                "agent_ms": agent_ms,
-                "tts_ms": tts_ms,
-                "total_ms": round(agent_ms + tts_ms, 2),
-            },
+            latencies_ms=latencies,
+            xray=self._build_xray(latencies),
         )
 
     def hangup(self) -> None:

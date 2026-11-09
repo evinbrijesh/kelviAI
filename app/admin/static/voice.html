@@ -76,6 +76,80 @@
   footer { max-width: 1180px; margin: auto; padding: 0 20px 28px; color: var(--muted); font-size: 13px; }
   @media (min-width: 650px) { .facts { grid-template-columns: 1fr 1fr; } .examples { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; } main { padding-top: 48px; } }
   @media (min-width: 950px) { .workspace { grid-template-columns: minmax(290px, .8fr) minmax(0, 1.4fr); gap: 48px; } .control { padding: 28px; } .examples { display: block; } main { padding-top: 64px; } }
+  .xray-toggle {
+    min-height: 36px;
+    padding: 6px 14px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: rgba(142, 245, 197, 0.05);
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+  }
+  .xray-toggle:hover:enabled {
+    background: rgba(142, 245, 197, 0.12);
+    border-color: var(--accent);
+  }
+  .xray-toggle[aria-expanded="true"] {
+    background: var(--accent);
+    color: #05130c;
+    border-color: var(--accent);
+  }
+  .xray-panel {
+    background: rgba(13, 19, 16, 0.85);
+    border: 1px solid rgba(142, 245, 197, 0.25);
+    border-radius: 14px;
+    padding: 16px;
+    margin: 14px 0 20px;
+  }
+  .xray-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .xray-title {
+    font: 600 13px/1.4 var(--sans);
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .xray-status-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .xray-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .xray-card {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .xray-label {
+    font: 600 11px/1.4 var(--sans);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .xray-val {
+    font-size: 12px;
+    color: var(--text);
+    word-break: break-word;
+  }
   @media (prefers-reduced-motion: reduce) { button:active:enabled { transform: none; } }
 </style>
 </head>
@@ -113,7 +187,39 @@
   </div>
 </section>
 <section class="conversation" aria-labelledby="conversation-heading">
-  <div class="conversation-head"><h2 id="conversation-heading">Conversation</h2><p>Voice with synthesized replies</p></div>
+  <div class="conversation-head">
+    <div>
+      <h2 id="conversation-heading">Conversation</h2>
+      <p>Voice with synthesized replies</p>
+    </div>
+    <button type="button" id="toggle-xray" class="xray-toggle" aria-expanded="false" title="Inspect agent dialogue reasoning, language detection, and database state">
+      ⚡ Engine X-Ray
+    </button>
+  </div>
+  <div id="xray-panel" class="xray-panel" hidden aria-label="Engine dialogue reasoning and telemetry">
+    <div class="xray-header">
+      <span class="xray-title">Conversational X-Ray</span>
+      <span class="xray-status-badge mono" id="xray-badge">Idle</span>
+    </div>
+    <div class="xray-grid">
+      <div class="xray-card">
+        <span class="xray-label">Language & Intent</span>
+        <div class="xray-val mono" id="xray-lang">Awaiting turn...</div>
+      </div>
+      <div class="xray-card">
+        <span class="xray-label">Indic Entity Resolution</span>
+        <div class="xray-val mono" id="xray-resolved">No entity resolved yet</div>
+      </div>
+      <div class="xray-card">
+        <span class="xray-label">Business Action & Lock</span>
+        <div class="xray-val mono" id="xray-tool">No tool invoked yet</div>
+      </div>
+      <div class="xray-card">
+        <span class="xray-label">Telemetry Latencies</span>
+        <div class="xray-val mono" id="xray-latency">STT: — | Agent: — | TTS: —</div>
+      </div>
+    </div>
+  </div>
   <div id="result" role="status" hidden><strong>Appointment booked</strong><p id="reference"></p></div>
   <div id="alt-card" role="region" aria-label="Alternative slot notice" hidden>
     <h3>Alternative Slot Offered</h3>

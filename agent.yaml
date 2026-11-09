@@ -70,6 +70,22 @@ tools:
           type: "string"
           description: "Unique booking reference ID"
       required: ["booking_id"]
+  - name: "reschedule_booking"
+    description: "Reschedule an existing booking to a new date and time"
+    enabled: true
+    parameters:
+      type: "object"
+      properties:
+        booking_id:
+          type: "string"
+          description: "Unique booking reference ID"
+        date:
+          type: "string"
+          description: "New date of appointment in YYYY-MM-DD format"
+        time_slot:
+          type: "string"
+          description: "New time of appointment in HH:MM format"
+      required: ["booking_id", "date", "time_slot"]
   - name: "transfer_to_human"
     description: "Transfer call to human agent"
     enabled: true

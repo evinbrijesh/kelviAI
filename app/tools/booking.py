@@ -70,6 +70,7 @@ class BookingTools:
             "check_availability": self.check_availability,
             "book_slot": self.book_slot,
             "cancel_booking": self.cancel_booking,
+            "reschedule_booking": self.reschedule_booking,
             "transfer_to_human": self.transfer_to_human,
         }
 
@@ -219,6 +220,77 @@ class BookingTools:
             "booking_id": str(booking.id),
             "patient_name": booking.patient_name,
             "slot_start": _local_iso(booking.slot_start, _timezone(booking.calendar)),
+        }
+
+    async def reschedule_booking(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        try:
+            booking_id = int(str(arguments.get("booking_id", "")).strip())
+        except ValueError:
+            return {"status": "not_found", "message": "Booking reference was not recognised."}
+
+        booking = self.session.get(Booking, booking_id)
+        if booking is None:
+            return {"status": "not_found", "message": "No booking matches that reference."}
+
+        if booking.status == str(BookingStatus.CANCELLED):
+            return {
+                "status": "already_cancelled",
+                "booking_id": str(booking.id),
+                "message": "Cannot reschedule a cancelled booking.",
+            }
+
+        try:
+            day = date.fromisoformat(str(arguments.get("date", "")))
+        except ValueError:
+            return {"status": "invalid_date", "message": "Date must use YYYY-MM-DD."}
+
+        calendar = booking.calendar or self._active_calendar()
+        if calendar is None:
+            return {"status": "no_calendar", "message": "No active clinic calendar is configured."}
+
+        if not _is_working_day(calendar, day):
+            return {"status": "closed", "clinic": calendar.name, "date": day.isoformat()}
+
+        time_str = str(arguments.get("time_slot", "")).strip()
+        try:
+            clock = datetime.strptime(time_str, "%H:%M").time()
+        except ValueError:
+            return {"status": "invalid_time", "message": "Time must use HH:MM."}
+
+        if clock not in _slot_times(calendar):
+            return {"status": "invalid_slot", "message": "Time is outside working hours."}
+
+        tz = _timezone(calendar)
+        slot_start = datetime.combine(day, clock, tzinfo=tz).astimezone(UTC)
+        slot_end = slot_start + timedelta(minutes=calendar.slot_minutes)
+
+        conflict = self.session.scalar(
+            select(Booking.id)
+            .where(
+                Booking.calendar_id == calendar.id,
+                Booking.id != booking.id,
+                Booking.status == str(BookingStatus.CONFIRMED),
+                Booking.slot_start < slot_end,
+                Booking.slot_end > slot_start,
+            )
+            .limit(1)
+        )
+        if conflict is not None:
+            return self._conflict(calendar, day, clock, tz)
+
+        previous_slot = _local_iso(booking.slot_start, tz)
+        booking.slot_start = slot_start
+        booking.slot_end = slot_end
+        booking.status = str(BookingStatus.CONFIRMED)
+        self.session.flush()
+
+        return {
+            "status": "rescheduled",
+            "booking_id": str(booking.id),
+            "patient_name": booking.patient_name,
+            "clinic": calendar.name,
+            "previous_slot": previous_slot,
+            "new_slot_start": _local_iso(slot_start, tz),
         }
 
     async def transfer_to_human(self, arguments: dict[str, Any]) -> dict[str, Any]:

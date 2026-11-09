@@ -2,7 +2,8 @@ const el = Object.fromEntries([
   'start', 'record', 'end', 'status', 'guidance', 'error', 'timer', 'stt', 'tts',
   'language', 'state', 'empty', 'messages', 'playback', 'reply-audio', 'audio-note',
   'result', 'reference', 'dashboard', 'text-fallback', 'text-form', 'text-input',
-  'text-send', 'alt-card', 'alt-text',
+  'text-send', 'alt-card', 'alt-text', 'toggle-xray', 'xray-panel', 'xray-badge',
+  'xray-lang', 'xray-resolved', 'xray-tool', 'xray-latency',
 ].map(id => [id, document.getElementById(id)]));
 const languages = { 'bn-IN': 'Bengali', 'en-IN': 'English', 'gu-IN': 'Gujarati', 'hi-IN': 'Hindi', 'kn-IN': 'Kannada', 'ml-IN': 'Malayalam', 'mr-IN': 'Marathi', 'pa-IN': 'Punjabi', 'ta-IN': 'Tamil', 'te-IN': 'Telugu' };
 const guidance = {
@@ -10,7 +11,9 @@ const guidance = {
   clarifying: 'Say the date and time again, with a specific hour.',
   awaiting_name: 'Give a fictional name for this demo booking.',
   awaiting_confirmation: 'Check the date and time in the reply, then say yes or no.',
-  completed: 'The booking is saved. You can inspect it in the call dashboard.',
+  awaiting_cancellation: 'Provide your booking reference number to cancel.',
+  awaiting_reschedule: 'Provide your booking reference and desired new date/time.',
+  completed: 'The booking action is saved. You can inspect it in the call dashboard.',
   failed: 'This call ended without a booking. Start a new call to try again.',
   transferred: 'The call has been handed off. Start a new call to try again.',
 };
@@ -247,11 +250,51 @@ async function sendTurn() {
   }
 }
 
+function updateXray(xray) {
+  if (!xray || !el['xray-panel']) return;
+  if (el['xray-badge']) {
+    el['xray-badge'].textContent = (xray.state || 'active').replaceAll('_', ' ');
+  }
+  if (el['xray-lang']) {
+    const langName = languages[xray.language] || xray.language || 'Indic';
+    el['xray-lang'].textContent = `${langName} (${xray.language || 'auto'})`;
+  }
+  if (el['xray-resolved']) {
+    if (xray.resolved_datetime && xray.resolved_datetime.date) {
+      const res = xray.resolved_datetime;
+      el['xray-resolved'].textContent = `${res.date} ${res.time || ''} (${Math.round((res.confidence || 0) * 100)}% conf)`;
+    } else {
+      el['xray-resolved'].textContent = 'No date/time extracted in turn';
+    }
+  }
+  if (el['xray-tool']) {
+    if (xray.tool_invoked) {
+      const t = xray.tool_invoked;
+      el['xray-tool'].textContent = `${t.name} -> ${t.status || 'executed'}`;
+    } else {
+      el['xray-tool'].textContent = 'Direct dialogue response';
+    }
+  }
+  if (el['xray-latency']) {
+    const l = xray.latencies_ms || {};
+    el['xray-latency'].textContent = `STT: ${l.stt_ms || 0}ms | Agent: ${l.agent_ms || 0}ms | TTS: ${l.tts_ms || 0}ms`;
+  }
+}
+
+if (el['toggle-xray'] && el['xray-panel']) {
+  el['toggle-xray'].addEventListener('click', () => {
+    const isHidden = el['xray-panel'].hidden;
+    el['xray-panel'].hidden = !isHidden;
+    el['toggle-xray'].setAttribute('aria-expanded', String(isHidden));
+  });
+}
+
 async function handleTurnResult(turn) {
   addMessage('caller', turn.caller_transcript || '(No speech detected)', turn.language);
   addMessage('agent', turn.agent_reply, turn.language);
   el.language.textContent = languages[turn.language] || turn.language;
   el.state.textContent = turn.state.replaceAll('_', ' ');
+  updateXray(turn.xray);
 
   // Detect alternative slot suggestions in the reply
   if (el['alt-card'] && el['alt-text']) {
@@ -315,6 +358,7 @@ el.start.addEventListener('click', async () => {
     el.language.textContent = languages[start.language] || start.language;
     el.state.textContent = start.state.replaceAll('_', ' ');
     addMessage('agent', start.greeting, start.language);
+    updateXray(start.xray);
     await playReply(start.audio_base64, guidance[start.state]);
   } catch (error) {
     showError(error);

@@ -27,6 +27,7 @@ class AgentState(str, Enum):
     AWAITING_NAME = "awaiting_name"
     AWAITING_CONFIRMATION = "awaiting_confirmation"
     AWAITING_CANCELLATION = "awaiting_cancellation"
+    AWAITING_RESCHEDULE = "awaiting_reschedule"
     COMPLETED = "completed"
     FAILED = "failed"
     TRANSFERRED = "transferred"
@@ -71,6 +72,9 @@ class AgentSession:
         self.clinic_name: str = "the clinic"
         self.booking_id: str | None = None
         self.booking_result: dict[str, Any] | None = None
+        self.reschedule_ref: str | None = None
+        self.last_resolved: dict[str, Any] | None = None
+        self.last_tool_invoked: dict[str, Any] | None = None
 
         self.call_log: CallSessionLog | None = None
         self.tools: ToolRegistry | None = None
@@ -120,10 +124,15 @@ class AgentSession:
         if self.state in (AgentState.AWAITING_SLOT, AgentState.CLARIFYING):
             if self._is_cancellation_intent(user_utterance):
                 return await self._handle_cancellation_step(user_utterance)
+            if self._is_reschedule_intent(user_utterance):
+                return await self._handle_reschedule_step(user_utterance)
             return await self._handle_slot_request(user_utterance)
 
         if self.state == AgentState.AWAITING_CANCELLATION:
             return await self._handle_cancellation_step(user_utterance)
+
+        if self.state == AgentState.AWAITING_RESCHEDULE:
+            return await self._handle_reschedule_step(user_utterance)
 
         if self.state == AgentState.AWAITING_NAME:
             return await self._handle_name_step(user_utterance)
@@ -179,6 +188,13 @@ class AgentSession:
             resolution.confidence,
             resolution.explanation,
         )
+        if resolution.date is not None or resolution.time is not None:
+            self.last_resolved = {
+                "date": resolution.date.isoformat() if resolution.date else None,
+                "time": resolution.time.strftime("%H:%M") if resolution.time else None,
+                "confidence": round(resolution.confidence, 2),
+                "explanation": resolution.explanation,
+            }
 
         # Low-confidence or unparseable input: offer clarification
         if (
@@ -384,7 +400,14 @@ class AgentSession:
                 f"Tool '{tool_name}' is not declared or enabled in agent.yaml"
             )
         assert self.tools is not None and self.call_log is not None
-        return await invoke_tool(self.tools, self.call_log, tool_name, arguments)
+        result = await invoke_tool(self.tools, self.call_log, tool_name, arguments)
+        self.last_tool_invoked = {
+            "name": tool_name,
+            "status": result.get("status"),
+            "arguments": arguments,
+            "result": result,
+        }
+        return result
 
     async def _find_open_day(
         self, start_day: date
@@ -636,6 +659,101 @@ class AgentSession:
             return reply
 
         reply = self._t("cancel_not_found")
+        self.call_log.agent_turn(reply)
+        return reply
+
+    def _is_reschedule_intent(self, text: str) -> bool:
+        reschedule_terms = (
+            "മാറ്റണം",
+            "മാറ്റാൻ",
+            "മാറ്റാമോ",
+            "പുതുക്കണം",
+            "മാറ്റിവെക്കണം",
+            "reschedule",
+            "postpone",
+            "prepone",
+            "change appointment",
+            "change time",
+            "change date",
+            "change slot",
+            "बदलना",
+            "रीशेड्यूल",
+            "रीशिड्यूल",
+        )
+        text_lower = text.lower()
+        return any(term in text_lower for term in reschedule_terms)
+
+    async def _handle_reschedule_step(self, user_utterance: str) -> str:
+        assert self.call_log is not None
+        ref = self._extract_reference(user_utterance) or self.reschedule_ref
+        if not ref:
+            self.state = AgentState.AWAITING_RESCHEDULE
+            reply = self._t("ask_reschedule_ref")
+            self.call_log.agent_turn(reply)
+            return reply
+
+        self.reschedule_ref = ref
+
+        resolution = await self.resolver.resolve(
+            user_utterance, language=self.language
+        )
+        if (
+            resolution.date is None
+            or resolution.time is None
+            or resolution.confidence < 0.60
+        ):
+            self.state = AgentState.AWAITING_RESCHEDULE
+            reply = self._t("ask_reschedule_slot", reference=ref)
+            self.call_log.agent_turn(reply)
+            return reply
+
+        self.last_resolved = {
+            "date": resolution.date.isoformat(),
+            "time": resolution.time.strftime("%H:%M"),
+            "confidence": round(resolution.confidence, 2),
+            "explanation": resolution.explanation,
+        }
+
+        result = await self._safe_invoke_tool(
+            "reschedule_booking",
+            {
+                "booking_id": ref,
+                "date": resolution.date.isoformat(),
+                "time_slot": resolution.time.strftime("%H:%M"),
+            },
+        )
+        status = result.get("status")
+        if status == "rescheduled":
+            self.state = AgentState.COMPLETED
+            new_slot = result.get("new_slot_start") or f"{resolution.date} {resolution.time}"
+            summary = f"Booking #{ref} was rescheduled to {new_slot}."
+            reply = self._t(
+                "rescheduled",
+                clinic=self.clinic_name,
+                reference=ref,
+                slot=new_slot,
+            )
+            self.call_log.agent_turn(reply)
+            self._finish(CallStatus.COMPLETED, summary, "rescheduled")
+            return reply
+
+        if status == "conflict":
+            available = result.get("available", [])
+            alt_str = ", ".join(available) if available else "no slots"
+            reply = (
+                f"{resolution.time.strftime('%H:%M')} ലഭ്യമല്ല; അടുത്ത സമയം {alt_str} ആണ്."
+                if self.language.startswith("ml")
+                else f"That slot is taken; nearest alternative is {alt_str}."
+            )
+            self.call_log.agent_turn(reply)
+            return reply
+
+        if status == "closed":
+            reply = self._t("closed_day", date=resolution.date.isoformat())
+            self.call_log.agent_turn(reply)
+            return reply
+
+        reply = self._t("reschedule_not_found")
         self.call_log.agent_turn(reply)
         return reply
 

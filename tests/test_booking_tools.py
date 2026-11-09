@@ -47,6 +47,7 @@ CONFIGURED_TOOLS = [
     tool_config("check_availability", "date"),
     tool_config("book_slot", "caller_name", "date", "time"),
     tool_config("cancel_booking", "booking_id"),
+    tool_config("reschedule_booking", "booking_id", "date", "time_slot"),
     tool_config("transfer_to_human", "reason"),
 ]
 
@@ -284,7 +285,44 @@ def test_disabled_tool_is_not_registered(harness: Harness) -> None:
 
 
 def test_declared_tool_without_a_handler_is_rejected(harness: Harness) -> None:
-    unknown = ToolConfig(name="send_sms", description="Send a message", enabled=True, parameters={})
+    unknown = ToolConfig(
+        name="send_sms", description="Send a message", enabled=True, parameters={}
+    )
 
     with pytest.raises(ToolError, match="no handler"):
         build_tool_registry(harness.session, [unknown], call=harness.log.call)
+
+
+@pytest.mark.asyncio
+async def test_reschedule_moves_booking_to_new_slot(harness: Harness) -> None:
+    day = next_working_day()
+    booked = await book(harness, day, "10:00")
+    booking_id = booked["booking_id"]
+
+    rescheduled: dict[str, Any] = await harness.registry.invoke(
+        "reschedule_booking",
+        {"booking_id": booking_id, "date": day.isoformat(), "time_slot": "11:30"},
+    )
+    assert rescheduled["status"] == "rescheduled"
+    assert "11:30" in rescheduled["new_slot_start"]
+
+    # Original 10:00 slot should be freed
+    availability = await harness.registry.invoke(
+        "check_availability", {"date": day.isoformat()}
+    )
+    assert "10:00" in availability["available"]
+    assert "11:30" not in availability["available"]
+
+
+@pytest.mark.asyncio
+async def test_reschedule_detects_conflict_on_taken_slot(harness: Harness) -> None:
+    day = next_working_day()
+    b1 = await book(harness, day, "10:00", name="Patient One")
+    await book(harness, day, "11:00", name="Patient Two")
+
+    conflict = await harness.registry.invoke(
+        "reschedule_booking",
+        {"booking_id": b1["booking_id"], "date": day.isoformat(), "time_slot": "11:00"},
+    )
+    assert conflict["status"] == "conflict"
+

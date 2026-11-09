@@ -4,7 +4,7 @@ import hmac
 import logging
 import re
 import urllib.parse
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import (
     APIRouter,
@@ -57,6 +57,7 @@ class VoiceStartResponse(BaseModel):
     language: str
     audio_base64: str
     audio_url: str
+    xray: dict[str, Any] | None = None
 
 
 class VoiceTurnJSONRequest(BaseModel):
@@ -80,6 +81,7 @@ class VoiceTurnResponse(BaseModel):
     audio_base64: str
     audio_url: str
     latencies_ms: dict[str, float]
+    xray: dict[str, Any] | None = None
 
 
 class VoiceStatusResponse(BaseModel):
@@ -156,6 +158,7 @@ async def start_voice_session(
         language=turn.language,
         audio_base64=audio_b64,
         audio_url=audio_url,
+        xray=turn.xray,
     )
 
 
@@ -240,6 +243,7 @@ async def process_voice_turn(
         audio_base64=audio_b64,
         audio_url=audio_url,
         latencies_ms=turn.latencies_ms,
+        xray=turn.xray,
     )
 
 
@@ -281,6 +285,7 @@ async def process_text_turn(
         audio_base64=audio_b64,
         audio_url=audio_url,
         latencies_ms=turn.latencies_ms,
+        xray=turn.xray,
     )
 
 

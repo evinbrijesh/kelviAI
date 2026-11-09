@@ -535,3 +535,72 @@ async def test_agent_session_cancellation_flow(
         updated = session.get(Booking, booking_id)
         assert updated is not None
         assert updated.status == str(BookingStatus.CANCELLED)
+
+
+@pytest.mark.asyncio
+async def test_agent_session_reschedule_flow(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    from app.config import ToolConfig, load_config
+
+    config = load_config(agent_config)
+    config.tools.append(
+        ToolConfig(
+            name="reschedule_booking",
+            description="Reschedule a booking",
+            enabled=True,
+        )
+    )
+    target_date = next_working_day()
+
+    booking_id: int
+    with database.session() as session:
+        booking = Booking(
+            calendar_id=clinic_calendar.id,
+            patient_name="Priya Thomas",
+            caller_phone="+919000000012",
+            slot_start=datetime.combine(
+                target_date, datetime.strptime("11:00", "%H:%M").time(), tzinfo=TZ
+            ).astimezone(UTC),
+            slot_end=datetime.combine(
+                target_date, datetime.strptime("11:30", "%H:%M").time(), tzinfo=TZ
+            ).astimezone(UTC),
+            status=str(BookingStatus.CONFIRMED),
+        )
+        session.add(booking)
+        session.commit()
+        session.refresh(booking)
+        booking_id = booking.id
+
+    resolver = CustomDateTimeResolver()
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000012",
+        )
+        agent.start()
+
+        # Turn 1: Ask to reschedule without reference
+        r1 = await agent.process_turn("എന്റെ അപ്പോയിന്റ്മെന്റ് മാറ്റണം")
+        assert agent.state == AgentState.AWAITING_RESCHEDULE
+        assert "റഫറൻസ്" in r1
+
+        # Turn 2: Provide reference and new date/time
+        r2 = await agent.process_turn(f"റഫറൻസ് {booking_id} നാളെ ഉച്ചയ്ക്ക് 2 മണിക്ക് മാറ്റണം")
+        assert agent.state == AgentState.COMPLETED
+        assert "മാറ്റി" in r2
+
+    # Verify rescheduled slot in database
+    with database.session() as session:
+        updated = session.get(Booking, booking_id)
+        assert updated is not None
+        assert updated.status == str(BookingStatus.CONFIRMED)
+        slot_utc = (
+            updated.slot_start.replace(tzinfo=UTC)
+            if updated.slot_start.tzinfo is None
+            else updated.slot_start.astimezone(UTC)
+        )
+        assert slot_utc.astimezone(TZ).strftime("%H:%M") == "14:00"
+
