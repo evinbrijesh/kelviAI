@@ -23,6 +23,10 @@ class ReplyTemplates:
     hangup: str
     thanks: str
     ask_name: str = "ദയവായി പേര് വ്യക്തമാക്കാമോ?"
+    saved_name_confirm: str = (
+        "നിങ്ങളുടെ പേര് '{name}' എന്നാണ് നൽകിയിട്ടുള്ളത്. "
+        "{date} {time}-ന് {clinic}-ൽ അപ്പോയിന്റ്മെന്റ് ഉറപ്പാക്കാമോ?"
+    )
     cancelled: str = "അപ്പോയിന്റ്മെന്റ് വിജയകരമായി റദ്ദാക്കി (റഫറൻസ് {reference}). നന്ദി!"
     cancel_not_found: str = "ക്ഷമിക്കണം, ഈ റഫറൻസിൽ അപ്പോയിന്റ്മെന്റ് കണ്ടെത്താൻ കഴിഞ്ഞില്ല."
     ask_cancel_ref: str = "അപ്പോയിന്റ്മെന്റ് റദ്ദാക്കാൻ ദയവായി ബുക്കിംഗ് റഫറൻസ് നമ്പർ വ്യക്തമാക്കാമോ?"
@@ -69,6 +73,10 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         hangup="ഉപഭോക്താവ് അഭ്യർത്ഥന പൂർത്തിയാക്കുന്നതിന് മുമ്പ് കോൾ വിച്ഛേദിച്ചു.",
         thanks="നന്ദി, വീണ്ടും വിളിക്കുക.",
         ask_name="നന്ദി. ആരുടെ പേരിലാണ് അപ്പോയിന്റ്മെന്റ് ബുക്ക് ചെയ്യേണ്ടത്?",
+        saved_name_confirm=(
+            "നിങ്ങളുടെ പേര് '{name}' എന്നാണ് നൽകിയിട്ടുള്ളത്. "
+            "{date} {time}-ന് {clinic}-ൽ അപ്പോയിന്റ്മെന്റ് ഉറപ്പാക്കാമോ?"
+        ),
         cancelled="{clinic}-ൽ {reference}-ാം നമ്പർ അപ്പോയിന്റ്മെന്റ് വിജയകരമായി റദ്ദാക്കി. നന്ദി!",
         cancel_not_found="ക്ഷമിക്കണം, ഈ റഫറൻസിൽ അപ്പോയിന്റ്മെന്റ് കണ്ടെത്താൻ കഴിഞ്ഞില്ല.",
         ask_cancel_ref="അപ്പോയിന്റ്മെന്റ് റദ്ദാക്കാൻ ദയവായി ബുക്കിംഗ് റഫറൻസ് നമ്പർ വ്യക്തമാക്കാമോ?",
@@ -95,6 +103,10 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         no_open_day="अगले एक सप्ताह में कोई खुला क्लिनिक दिन नहीं मिला।",
         hangup="कॉलर ने अनुरोध पूरा होने से पहले कॉल काट दी।",
         thanks="धन्यवाद, फिर से कॉल करें।",
+        saved_name_confirm=(
+            "आपका नाम '{name}' दर्ज है। क्या {clinic} में {date} को {time} बजे "
+            "अपॉइंटमेंट की पुष्टि करें?"
+        ),
     ),
     "mr-IN": ReplyTemplates(
         clarification="क्षमा करा, कृपया सांगा तुम्हाला कोणती तारीख आणि वेळ हवी आहे?",
@@ -280,6 +292,10 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         hangup="Caller hung up before completing the request.",
         thanks="Thank you, please call again.",
         ask_name="Thank you. Could you please share your name for the booking?",
+        saved_name_confirm=(
+            "Your name is recorded as '{name}'. Shall I confirm the appointment "
+            "for {date} at {time} at {clinic}?"
+        ),
         cancelled=(
             "Your appointment at {clinic} (reference {reference}) has been "
             "successfully cancelled. Thank you!"

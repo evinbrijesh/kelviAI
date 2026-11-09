@@ -178,6 +178,19 @@ class AgentSession:
 
     async def _handle_slot_request(self, user_utterance: str) -> str:
         assert self.call_log is not None
+
+        if (
+            self.chosen_date is not None
+            and self.chosen_time is not None
+            and self._is_slot_retention_confirmation(user_utterance)
+        ):
+            if self.caller_name:
+                return await self._execute_booking()
+            self.state = AgentState.AWAITING_NAME
+            reply = self._t("ask_name")
+            self.call_log.agent_turn(reply)
+            return reply
+
         resolution = await self.resolver.resolve(
             user_utterance, language=self.language
         )
@@ -301,9 +314,11 @@ class AgentSession:
                 self.call_log.agent_turn(reply)
                 return reply
 
-            clean_candidate = user_utterance.strip().split(".")[0].strip()
+            clean_candidate = self._clean_name_candidate(user_utterance)
             if (
-                len(clean_candidate) >= 2
+                clean_candidate
+                and len(clean_candidate) >= 2
+                and not self._is_disallowed_name(clean_candidate)
                 and not self._is_positive_confirmation(clean_candidate)
                 and not clean_candidate.isdigit()
             ):
@@ -326,16 +341,46 @@ class AgentSession:
 
     async def _handle_confirmation_step(self, user_utterance: str) -> str:
         assert self.call_log is not None
-        # Check if caller name was provided here
-        if not self.caller_name:
-            extracted = self._extract_name(user_utterance)
-            if extracted:
-                self.caller_name = extracted
+        assert self.chosen_date is not None and self.chosen_time is not None
 
+        # 1. Did caller ask what name is saved?
+        if self._is_name_query(user_utterance):
+            if self.caller_name:
+                reply = self._t(
+                    "saved_name_confirm",
+                    name=self.caller_name,
+                    date=self.chosen_date.isoformat(),
+                    time=self.chosen_time,
+                    clinic=self.clinic_name,
+                )
+            else:
+                reply = self._t("ask_name")
+            self.call_log.agent_turn(reply)
+            return reply
+
+        # 2. Did caller provide or correct their name?
+        extracted = self._extract_name(user_utterance)
+        if extracted and extracted != self.caller_name:
+            self.caller_name = extracted
+            reply = self._t(
+                "confirming",
+                name=self.caller_name,
+                date=self.chosen_date.isoformat(),
+                time=self.chosen_time,
+                clinic=self.clinic_name,
+            )
+            self.call_log.agent_turn(reply)
+            return reply
+
+        # 3. Did caller confirm retaining the chosen slot?
+        if self._is_slot_retention_confirmation(user_utterance):
+            return await self._execute_booking()
+
+        # 4. Standard positive confirmation
         if self._is_positive_confirmation(user_utterance):
             return await self._execute_booking()
 
-        # If caller rejects or asks for changes
+        # 5. Caller rejects or asks for other dates
         reply = self._t("rejected")
         self.state = AgentState.AWAITING_SLOT
         self.call_log.agent_turn(reply)
@@ -437,9 +482,101 @@ class AgentSession:
         later = [slot for slot in slots if slot > requested]
         return later[0] if later else slots[0]
 
+    def _is_disallowed_name(self, text: str) -> bool:
+        cleaned = text.strip().lower()
+        if len(cleaned) < 2:
+            return True
+        if re.fullmatch(r"[\d\s\W]+", cleaned):
+            return True
+
+        disallowed_tokens = {
+            "ഓൾറെഡി", "പറഞ്ഞല്ലോ", "പറഞ്ഞു", "പറഞ്ഞില്ലേ", "നേരത്തെ",
+            "ആയിക്കോട്ടെ", "അപ്പം", "അപ്പോ", "മതി", "ബുക്ക്", "ബുക്കിംഗ്",
+            "എന്തിനാ", "എങ്ങനെ", "നോക്കട്ടെ", "ഇഷ്യൂ", "ഇഷ്യു", "ഇല്ല",
+            "പ്രശ്നമില്ല", "ശരി", "യെസ്", "വേണ്ട", "വേണ്ടാ", "അല്ല", "ആണ്",
+            "ആണു", "ഹലോ", "നമസ്കാരം", "ഹായ്", "എന്റെ", "എൻ്റെ", "പേര്",
+            "ആരുടെ", "ഉറപ്പാക്കാമോ", "ചെയ്തോ", "ചെയ്തോളൂ", "അതിൽ",
+            "already", "said", "told", "earlier", "book", "booking",
+            "please", "name", "patient", "issue", "no", "yes", "okay",
+            "sure", "cancel", "reschedule", "hello", "hi", "hey",
+            "नाम", "पहले", "बोला", "कहा", "बुक", "बुकिंग", "नहीं", "हाँ",
+            "ठीक", "नमस्ते", "करो",
+        }
+        tokens = set(re.findall(r"[\w\u0900-\u0D7F]+", cleaned))
+        if not tokens:
+            return True
+        if "ഓൾറെഡി" in tokens or "പറഞ്ഞല്ലോ" in tokens or "already" in tokens:
+            return True
+        return all(tok in disallowed_tokens for tok in tokens)
+
+    def _clean_name_candidate(self, raw: str) -> str | None:
+        candidate = re.split(r"[.,\n;।॥!?]", raw.strip())[0].strip()
+        # Strip trailing conjunctions and booking commands
+        candidate = re.sub(
+            r"(?:\s+(?:അതിൽ|അതിൽത്തന്നെ|എന്ന്|എന്ന്\s+പറഞ്ഞ്|ബുക്ക്\s+ചെയ്തോളൂ|"
+            r"ബുക്ക്\s+ചെയ്തോ|ബുക്ക്\s+ചെയ്യ്|ബുക്ക്\s+ചെയ്യുക|ബുക്ക്|"
+            r"ബുക്കിംഗ്|book\s+it|book\s+karo|book|karo|please))+$",
+            "",
+            candidate,
+            flags=re.IGNORECASE,
+        ).strip()
+        # Strip trailing copulas
+        candidate = re.sub(
+            r"(?:\s+(?:hai|he|hun|hoon|aanu|anu|ആണ്|ആണു|ആണ്\s+എന്ന്|ആണ്\s+എന്ന്\s+പറഞ്ഞ്|"
+            r"है|हूँ|हूं|आहे|হয়|ஆகும்|છે|ਹੈ))+$",
+            "",
+            candidate,
+            flags=re.IGNORECASE,
+        ).strip()
+        return candidate if len(candidate) >= 2 else None
+
+    def _is_name_query(self, text: str) -> bool:
+        query_patterns = (
+            r"പേര്\s*(?:ആയിട്ട്|ആയിട്ടാ|ആയിട്ടാണോ)?\s*എന്താ",
+            r"പേരായിട്ട്\s*എന്താ",
+            r"പേരായിട്ടെന്താ",
+            r"പേരെന്താ",
+            r"പേര്\s*പറയാമോ",
+            r"പേര്\s*പറയാൻ\s*പറ്റുമോ",
+            r"ഏത്\s*പേരിലാ",
+            r"ഏത്\s*പേരിലാണ്",
+            r"ആരുടെ\s*പേരിലാ",
+            r"ആരുടെ\s*പേരിലാണ്",
+            r"what(?:'s|\s+is)\s+(?:my\s+)?name",
+            r"which\s+name",
+            r"what\s+name",
+            r"क्या\s+नाम",
+            r"किस\s+नाम\s+से",
+            r"किसके\s+नाम",
+        )
+        text_lower = text.lower()
+        return any(re.search(pat, text_lower) for pat in query_patterns)
+
+    def _is_slot_retention_confirmation(self, text: str) -> bool:
+        retention_patterns = (
+            r"അപ്പോഴത്തേക്കിന്\s*ബുക്ക്",
+            r"അപ്പോഴത്തേക്ക്\s*ബുക്ക്",
+            r"അപ്പോഴത്തേക്ക്\s*മതി",
+            r"അന്ന്\s*തന്നെ\s*ബുക്ക്",
+            r"അന്ന്\s*തന്നെ\s*മതി",
+            r"അത്\s*തന്നെ\s*ബുക്ക്",
+            r"അതിൽ\s*ബുക്ക്",
+            r"ഇഷ്യൂ\s*ഇല്ല",
+            r"ഇഷ്യു\s*ഇല്ല",
+            r"പ്രശ്നമില്ല",
+            r"no\s+issue",
+            r"no\s+problem",
+            r"उसी\s+समय",
+            r"वही\s+समय",
+            r"कोई\s+दिक्कत\s+नहीं",
+            r"कोई\s+बात\s+नहीं",
+        )
+        text_lower = text.lower()
+        return any(re.search(pat, text_lower) for pat in retention_patterns)
+
     def _extract_name(self, text: str) -> str | None:
         prefixes = (
-            r"എന്റെ\s+പേര്",
+            r"(?:എന്റെ|എൻ്റെ|എന്‍റെ)\s+പേര്",
             r"പേര്",
             r"मेरा\s+नाम",
             r"माझे\s+नाव",
@@ -478,22 +615,41 @@ class AgentSession:
             r"\u0C80-\u0CFF"
             r"\u0D00-\u0D7F"
         )
+
+        # 1. Indic suffix patterns (e.g. "<Name> എന്ന പേരിൽ ബുക്ക് ചെയ്തോളൂ")
+        suffix_patterns = (
+            rf"([{name_chars}\s]{{2,40}}?)\s+എന്ന\s+പേരി(?:ൽ|ലാ|ലാണ്|ൽത്തന്നെ)",
+            rf"([{name_chars}\s]{{2,40}}?)\s+(?:के\s+नाम\s+से|ke\s+naam\s+se)",
+            rf"([{name_chars}\s]{{2,40}}?)\s+(?:என்ற\s+பெயரில்|(?:enra|endra)\s+peyaril)",
+        )
+        for spat in suffix_patterns:
+            smatch = re.search(spat, text, re.IGNORECASE)
+            if smatch:
+                raw_cand = smatch.group(1).strip()
+                raw_cand = re.sub(
+                    r"^(?:ഞാൻ|എന്റെ|എൻ്റെ|എന്‍റെ|ഇതിൽ|മേരാ|mera|my\s+name\s+is)\s+",
+                    "",
+                    raw_cand,
+                    flags=re.IGNORECASE,
+                ).strip()
+                cand = self._clean_name_candidate(raw_cand)
+                if cand and not self._is_disallowed_name(cand):
+                    return cand
+
+        # 2. Prefix patterns
         pattern = (
             rf"(?<![{name_chars}])(?:{'|'.join(prefixes)})(?![{name_chars}])"
             rf"\s*[:=]?\s*([{name_chars}\s]+)"
         )
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            candidate = re.split(r"[.,\n;।॥!?]", match.group(1).strip())[0].strip()
-            candidate = re.sub(
-                r"(?:\s+(?:hai|he|hun|hoon|aanu|anu|ആണ്|ആണു|है|हूँ|हूं|आहे|"
-                r"হয়|ஆகும்|છે|ਹੈ))+$",
-                "",
-                candidate,
-                flags=re.IGNORECASE,
-            ).strip()
-            if len(candidate) >= 2:
-                return candidate
+        valid_candidates: list[str] = []
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            raw = match.group(1)
+            cand = self._clean_name_candidate(raw)
+            if cand and not self._is_disallowed_name(cand):
+                valid_candidates.append(cand)
+
+        if valid_candidates:
+            return valid_candidates[-1]
         return None
 
     def _is_positive_confirmation(self, text: str) -> bool:

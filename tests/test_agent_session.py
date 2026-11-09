@@ -604,3 +604,83 @@ async def test_agent_session_reschedule_flow(
         )
         assert slot_utc.astimezone(TZ).strftime("%H:%M") == "14:00"
 
+
+@pytest.mark.asyncio
+async def test_malayalam_name_extraction_patterns(
+    database: Database, agent_config: Any
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    resolver = CustomDateTimeResolver()
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000015",
+        )
+        # Suffix pattern
+        n1 = agent._extract_name("മിസ്റ്റർ ഹൂ ഇസ് ദ ബോസ് എന്ന പേരിൽ ബുക്ക് ചെയ്തോളൂ.")
+        assert n1 == "മിസ്റ്റർ ഹൂ ഇസ് ദ ബോസ്"
+
+        # Chillu-n and compound correction with filler rejection
+        n2 = agent._extract_name(
+            "ഞാൻ എൻ്റെ പേര് ഓൾറെഡി പറഞ്ഞല്ലോ, എൻ്റെ പേര് മിസ്റ്റർ ഹൂ ഇസ് ദ ബോസ്, അതിൽ ബുക്ക് ചെയ്തോ?"
+        )
+        assert n2 == "മിസ്റ്റർ ഹൂ ഇസ് ദ ബോസ്"
+
+        # Disallowed conversational words must never be names
+        assert agent._is_disallowed_name("ഓൾറെഡി പറഞ്ഞല്ലോ") is True
+        assert agent._is_disallowed_name("ഇഷ്യൂ ഇല്ല") is True
+        assert agent._is_disallowed_name("ബുക്ക് ചെയ്തോളൂ") is True
+
+
+@pytest.mark.asyncio
+async def test_conversational_name_query_and_retention(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    resolver = CustomDateTimeResolver()
+    target_day = next_working_day()
+    day_str = target_day.isoformat()
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000016",
+        )
+        agent.start()
+
+        # Turn 1: Slot request
+        r1 = await agent.process_turn(f"{day_str} രാവിലെ 10 മണിക്ക് അപ്പോയിൻമെൻറ്റ് വേണം")
+        assert agent.state == AgentState.AWAITING_NAME
+        assert "10:00" in r1
+
+        # Turn 2: User provides name using suffix pattern
+        r2 = await agent.process_turn("മിസ്റ്റർ ഹൂ ഇസ് ദ ബോസ് എന്ന പേരിൽ ബുക്ക് ചെയ്തോളൂ.")
+        assert agent.state == AgentState.AWAITING_CONFIRMATION
+        assert agent.caller_name == "മിസ്റ്റർ ഹൂ ഇസ് ദ ബോസ്"
+        assert "മിസ്റ്റർ ഹൂ ഇസ് ദ ബോസ്" in r2
+
+        # Turn 3: User asks what name is saved
+        r3 = await agent.process_turn("എൻ്റെ പേരായിട്ടെന്താ സേവ് ചെയ്തേക്കുന്നത്, അത് പറയാൻ പറ്റുമോ?")
+        assert agent.state == AgentState.AWAITING_CONFIRMATION
+        assert "മിസ്റ്റർ ഹൂ ഇസ് ദ ബോസ്" in r3
+
+        # Turn 4: User confirms with colloquial retention phrase
+        r4 = await agent.process_turn("വേണ്ട, അപ്പോഴത്തേക്കിന് ബുക്ക് ചെയ്തോ? ഇഷ്യൂ ഇല്ല.")
+        assert agent.state == AgentState.COMPLETED
+        assert "ബുക്ക് ചെയ്തു" in r4 or "റഫറൻസ്" in r4
+        assert agent.booking_id is not None
+
+        # Verify booking in database has the accurate patient name
+        b = session.get(Booking, int(agent.booking_id))
+        assert b is not None
+        assert b.patient_name == "മിസ്റ്റർ ഹൂ ഇസ് ദ ബോസ്"
+
+
