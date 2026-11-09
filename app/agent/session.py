@@ -181,6 +181,14 @@ class AgentSession:
         self.state = AgentState.FAILED
         return reason
 
+    async def _reason_utterance(self, text: str) -> Any:
+        if hasattr(self.resolver, "reason"):
+            try:
+                return await self.resolver.reason(text, language=self.language)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("Resolver reason call failed: %s", exc)
+        return None
+
     async def _handle_slot_request(self, user_utterance: str) -> str:
         assert self.call_log is not None
 
@@ -196,14 +204,22 @@ class AgentSession:
             self.call_log.agent_turn(reply)
             return reply
 
-        resolution = await self.resolver.resolve(
-            user_utterance, language=self.language
-        )
+        analysis = await self._reason_utterance(user_utterance)
+        if analysis is not None:
+            resolution = analysis.resolution
+            engine_name = analysis.engine_used
+        else:
+            resolution = await self.resolver.resolve(
+                user_utterance, language=self.language
+            )
+            engine_name = "custom-guardrail"
+
         logger.info(
-            "Resolved utterance to date=%s time=%s confidence=%.2f (%s)",
+            "Resolved utterance to date=%s time=%s confidence=%.2f engine=%s (%s)",
             resolution.date,
             resolution.time,
             resolution.confidence,
+            engine_name,
             resolution.explanation,
         )
         if resolution.date is not None or resolution.time is not None:
@@ -212,6 +228,7 @@ class AgentSession:
                 "time": resolution.time.strftime("%H:%M") if resolution.time else None,
                 "confidence": round(resolution.confidence, 2),
                 "explanation": resolution.explanation,
+                "engine": engine_name,
             }
 
         # Low-confidence or unparseable input: offer clarification
@@ -275,7 +292,9 @@ class AgentSession:
         self.clinic_name = str(availability.get("clinic") or "the clinic")
 
         # Check if caller name is already embedded in user utterance
-        extracted_name = self._extract_name(user_utterance)
+        extracted_name = (
+            getattr(analysis, "caller_name", None) or self._extract_name(user_utterance)
+        )
         if extracted_name:
             self.caller_name = extracted_name
 
@@ -313,7 +332,10 @@ class AgentSession:
         assert self.call_log is not None
         assert self.chosen_date is not None and self.chosen_time is not None
 
-        extracted = self._extract_name(user_utterance)
+        analysis = await self._reason_utterance(user_utterance)
+        extracted = (
+            getattr(analysis, "caller_name", None) or self._extract_name(user_utterance)
+        )
         if extracted:
             self.caller_name = extracted
         elif not self.caller_name:
@@ -357,8 +379,14 @@ class AgentSession:
         spoken_d = format_spoken_date(self.chosen_date, language=self.language)
         spoken_t = format_spoken_time(self.chosen_time, language=self.language)
 
+        analysis = await self._reason_utterance(user_utterance)
+
         # 1. Did caller ask what name is saved?
-        if self._is_name_query(user_utterance):
+        is_name_q = (
+            (analysis is not None and analysis.intent == "query_saved_name")
+            or self._is_name_query(user_utterance)
+        )
+        if is_name_q:
             if self.caller_name:
                 reply = self._t(
                     "saved_name_confirm",
@@ -373,7 +401,9 @@ class AgentSession:
             return reply
 
         # 2. Did caller provide or correct their name?
-        extracted = self._extract_name(user_utterance)
+        extracted = (
+            getattr(analysis, "caller_name", None) or self._extract_name(user_utterance)
+        )
         if extracted and extracted != self.caller_name:
             self.caller_name = extracted
             reply = self._t(
@@ -387,11 +417,19 @@ class AgentSession:
             return reply
 
         # 3. Did caller confirm retaining the chosen slot?
-        if self._is_slot_retention_confirmation(user_utterance):
+        is_retain = (
+            (analysis is not None and analysis.intent == "retain_slot")
+            or self._is_slot_retention_confirmation(user_utterance)
+        )
+        if is_retain:
             return await self._execute_booking()
 
         # 4. Standard positive confirmation
-        if self._is_positive_confirmation(user_utterance):
+        is_pos = (
+            (analysis is not None and analysis.intent == "confirm_booking")
+            or self._is_positive_confirmation(user_utterance)
+        )
+        if is_pos:
             return await self._execute_booking()
 
         # 5. Caller rejects or asks for other dates

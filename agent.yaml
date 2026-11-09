@@ -28,7 +28,7 @@ model:
       pa-IN: "Mehuli"
       ta-IN: "Asmita"
       te-IN: "Suhana"
-  date_time_resolver: "custom"
+  date_time_resolver: "evon"
 
 tools:
   - name: "check_availability"

@@ -40,7 +40,7 @@ class AdapterRegistry:
             resolver_type = self.config.model.date_time_resolver.lower()
             if resolver_type == "custom":
                 self._resolver = CustomDateTimeResolver()
-            elif resolver_type == "evon":
+            elif resolver_type in ("evon", "hybrid"):
                 self._resolver = EvonDateTimeResolver()
             else:
                 raise ValueError(f"Unknown date_time_resolver: {resolver_type}")

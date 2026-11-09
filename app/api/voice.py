@@ -94,6 +94,7 @@ class VoiceStatusResponse(BaseModel):
     stt_model: str
     tts_model: str
     tts_voice: str
+    reasoning_model: str = "evon-v3.3 (hybrid)"
     language: str
     supported_languages: list[str]
     sample_rate: int
@@ -121,6 +122,7 @@ async def get_voice_status(request: Request) -> VoiceStatusResponse:
         stt_model=config.model.stt.model,
         tts_model=config.model.tts.model,
         tts_voice=config.model.tts.voice,
+        reasoning_model=f"evon-v3.3 ({config.model.date_time_resolver})",
         language=config.model.stt.language,
         supported_languages=list(SUPPORTED_LANGUAGE_CODES),
         sample_rate=48000,
