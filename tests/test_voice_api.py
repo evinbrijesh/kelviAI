@@ -44,6 +44,10 @@ async def test_browser_voice_demo_is_separate_from_admin(client: AsyncClient) ->
     root = await client.get("/")
     assert root.status_code == 200
     assert "Build Indian-language voice agents" in root.text
+    assert "Live Demo Preview" in root.text
+    assert "One application built with Kelvi AI" in root.text
+    assert "Build voice agents that understand how people speak" in root.text
+    assert "This demo uses fictional clinic data" in root.text
 
     how_it_works = await client.get("/how-it-works")
     assert how_it_works.status_code == 200
