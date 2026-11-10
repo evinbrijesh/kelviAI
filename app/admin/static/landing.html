@@ -659,7 +659,8 @@
     </a>
     <nav class="nav-links">
       <a href="/how-it-works">How It Works</a>
-      <a href="#docs">Docs</a>
+      <a href="/docs">Docs</a>
+      <a href="/api-reference">API Reference</a>
       <a href="https://github.com/evinbrijesh/vaanikit" target="_blank" rel="noopener noreferrer">GitHub</a>
       <a href="/demo" class="btn-nav-demo">Try Demo</a>
     </nav>
@@ -815,7 +816,7 @@
   </section>
 
   <!-- 4. See the Framework in Action (Linear Flow) -->
-  <section class="section">
+  <section class="section" id="architecture">
     <div class="section-tag">Dialogue Lifecycle</div>
     <h2 class="section-title">See the Framework in Action</h2>
     <p class="section-desc">
@@ -864,84 +865,107 @@
   <!-- 5. Documentation Preview Panel -->
   <section class="section" id="docs">
     <div class="docs-preview-box">
-      <div class="section-tag">Developer Quickstart</div>
-      <h2 class="section-title">Build voice agents that understand how people speak.</h2>
+      <div class="section-tag">Developer Documentation</div>
+      <h2 class="section-title">Build with Kelvi AI</h2>
       <p class="section-desc">
-        Kelvi AI gives you the building blocks for Indian-language voice agents: conversation state, memory, tools, provider adapters, and localized voice responses.
+        Kelvi AI provides the building blocks for Indian-language voice agents: speech adapters, conversation state, memory, tools, confirmations, persistence, and localized voice responses.
       </p>
 
       <div style="display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 24px;">
-        <a href="/docs" class="btn-primary" style="padding: 10px 20px; font-size: 14.5px;">Read API docs</a>
+        <a href="/docs" class="btn-primary" style="padding: 10px 20px; font-size: 14.5px;">Read the docs</a>
+        <a href="/api-reference" class="btn-secondary" style="padding: 10px 20px; font-size: 14.5px;">API reference</a>
         <a href="https://github.com/evinbrijesh/vaanikit" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="padding: 10px 20px; font-size: 14.5px;">View on GitHub</a>
       </div>
 
-      <!-- Quickstart Code Preview -->
-      <div class="code-callout">
-<pre><code>from kelvi import Agent, tool
-
-agent = Agent(
-    language="ml-IN",
-    stt="gnani-prisma",
-    tts="gnani-timbre",
-    reasoning="evon",
-)
-
-@agent.tool(description="Check the status of a customer delivery order")
-async def check_order_status(order_id: str):
-    return {
-        "order_id": order_id,
-        "status": "Out for delivery"
-    }
-
-agent.run()</code></pre>
-      </div>
-
-      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 28px; font-family: var(--mono); font-size: 13.5px; color: var(--muted);">
-        <span>Scaffold in 5 seconds:</span>
-        <code style="background: rgba(142, 245, 197, 0.08); border: 1px solid var(--border); padding: 4px 10px; border-radius: 4px; color: var(--accent);">pip install kelvi-ai &amp;&amp; kelvi init my-agent</code>
-      </div>
-
-      <!-- Core Documentation Cards -->
+      <!-- 4 Working Cards linking to real anchors or pages -->
       <div class="docs-cards-grid">
-        <a href="/how-it-works" class="doc-card">
-          <div class="doc-card-title">1. Getting Started →</div>
-          <div class="doc-card-desc">Install Kelvi AI, configure your providers, create an agent, and run your first voice workflow.</div>
+        <a href="#quickstart" class="doc-card">
+          <div class="doc-card-title">Quickstart →</div>
+          <div class="doc-card-desc">Run the appointment reference application locally in 4 simple terminal steps.</div>
         </a>
 
-        <a href="/how-it-works#tools" class="doc-card">
-          <div class="doc-card-title">2. Add Tools →</div>
-          <div class="doc-card-desc">Turn ordinary Python functions into voice-executable actions with validation, timeouts, and confirmation handling.</div>
+        <a href="#tools" class="doc-card">
+          <div class="doc-card-title">Tools →</div>
+          <div class="doc-card-desc">Connect ordinary Python functions to voice conversations with safety guardrails.</div>
         </a>
 
-        <a href="/how-it-works#indic" class="doc-card">
-          <div class="doc-card-title">3. Indic Engine →</div>
-          <div class="doc-card-desc">Handle Indian languages, code-mixed speech, transliteration, and colloquial date/time expressions.</div>
+        <a href="#indic-engine" class="doc-card">
+          <div class="doc-card-title">Indic engine →</div>
+          <div class="doc-card-desc">Handle Indian languages, code-mixed speech, and natural date/time expressions.</div>
         </a>
 
-        <a href="/how-it-works#adapters" class="doc-card">
-          <div class="doc-card-title">4. Provider Adapters →</div>
-          <div class="doc-card-desc">Connect speech recognition, reasoning, and text-to-speech providers through replaceable adapters.</div>
+        <a href="#architecture" class="doc-card">
+          <div class="doc-card-title">Architecture →</div>
+          <div class="doc-card-desc">Understand how caller speech becomes a real-world database action and voice reply.</div>
         </a>
+      </div>
 
-        <a href="/demo" class="doc-card">
-          <div class="doc-card-title">5. Reference Apps →</div>
-          <div class="doc-card-desc">Explore working implementations: outpatient clinic appointment booking and quick-commerce delivery.</div>
-        </a>
+      <!-- Quickstart: Real Repository Setup -->
+      <div id="quickstart" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
+        <h3 style="font: 400 20px/1.3 var(--display); margin-bottom: 8px;">Run the Reference Service Locally</h3>
+        <p style="color: var(--muted); font-size: 14.5px; margin-bottom: 14px;">
+          Set up the local environment and launch the interactive demo server:
+        </p>
+        <div class="code-callout">
+<pre><code># Clone and install dependencies
+git clone https://github.com/evinbrijesh/vaanikit.git
+cd vaanikit
+cp .env.example .env
+pip install -e ".[dev]"
+
+# Start development server
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload</code></pre>
+        </div>
+      </div>
+
+      <!-- Real Endpoints Documentation -->
+      <div style="margin-top: 24px;">
+        <h4 style="font: 600 13px/1.4 var(--mono); color: var(--accent); text-transform: uppercase; margin-bottom: 10px;">Primary Voice &amp; Admin Endpoints</h4>
+        <div class="code-callout">
+<pre><code>/demo                                   Interactive browser voice demo
+/admin/ui                               Call operations &amp; audit dashboard
+/api/voice/session/start                Initialize voice session &amp; greeting
+/api/voice/session/{call_sid}/turn      Submit audio turn &amp; receive voice reply
+/api/voice/session/{call_sid}/text-turn Text fallback turn (microphone bypass)
+/api-reference                          OpenAPI &amp; Swagger endpoint documentation</code></pre>
+        </div>
       </div>
 
       <!-- Add Your First Tool Highlight -->
-      <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--border);">
-        <h3 style="font: 400 20px/1.3 var(--display); margin-bottom: 8px;">Add your first tool</h3>
+      <div id="tools" style="margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border);">
+        <h3 style="font: 400 20px/1.3 var(--display); margin-bottom: 8px;">Add a tool</h3>
         <p style="color: var(--muted); font-size: 14.5px; margin-bottom: 14px;">
-          Your business logic stays in normal Python. Kelvi AI handles schema validation, conversation context, execution, errors, and observability:
+          Your business logic stays in normal Python. Kelvi AI handles schema validation, conversation context, execution, and confirmation checks:
         </p>
         <div class="code-callout">
-<pre><code>@agent.tool(
+<pre><code>from kelvi import tool
+
+@tool(
     name="check_availability",
-    description="Check whether a requested slot is available"
+    description="Check whether a requested slot is available",
+    requires_confirmation=False,
 )
-async def check_availability(date: str, time: str):
+async def check_availability(date: str, time: str) -> dict:
     return await calendar.find_slot(date, time)</code></pre>
+        </div>
+      </div>
+
+      <!-- Indic Engine Highlight -->
+      <div id="indic-engine" style="margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border);">
+        <h3 style="font: 400 20px/1.3 var(--display); margin-bottom: 8px;">Indic Engine</h3>
+        <p style="color: var(--muted); font-size: 14.5px; margin-bottom: 14px;">
+          Native parsing for 10 Indian languages with code-mixing tolerance, filler stripping, and spoken datetime prosody:
+        </p>
+        <div class="code-callout">
+<pre><code>from kelvi.indic import resolve_language, format_spoken_datetime
+
+# 1. Resolve code-mixed requests (e.g. Hinglish or Manglish)
+lang = resolve_language("Mujhe kal subah 10 baje slot chahiye", hint="hi-IN")
+# Returns: "hi-IN"
+
+# 2. Format temporal slots into natural conversational syntax before voice synthesis
+spoken = format_spoken_datetime("2026-11-12", "10:00", language="ml-IN")
+# Returns: "നാളെ രാവിലെ 10:00-ന്" (smooth prosody without robotic digit recitations)</code></pre>
         </div>
       </div>
 
@@ -1022,7 +1046,8 @@ async def check_availability(date: str, time: str):
     <div class="footer-nav">
       <a href="/demo">Voice Demo</a>
       <a href="/how-it-works">How It Works</a>
-      <a href="/docs">API Docs</a>
+      <a href="/docs">Docs</a>
+      <a href="/api-reference">API Reference</a>
       <a href="/admin/ui">Admin Operations</a>
     </div>
   </div>

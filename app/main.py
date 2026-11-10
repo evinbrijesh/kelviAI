@@ -57,7 +57,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Application resources closed cleanly")
 
 
-app = FastAPI(title="KelviAI", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="Kelvi AI API",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url="/api-reference",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
 app.include_router(admin_router)
 app.include_router(voice_router)
 app.mount("/admin/static", StaticFiles(directory=STATIC_DIR), name="admin-static")
@@ -88,6 +95,11 @@ def voice_demo() -> FileResponse:
 @app.get("/how-it-works", include_in_schema=False)
 def how_it_works() -> FileResponse:
     return FileResponse(STATIC_DIR / "how-it-works.html", media_type="text/html")
+
+
+@app.get("/docs", include_in_schema=False)
+def developer_docs() -> FileResponse:
+    return FileResponse(STATIC_DIR / "docs.html", media_type="text/html")
 
 
 @app.get("/health")
