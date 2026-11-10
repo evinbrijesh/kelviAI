@@ -86,7 +86,8 @@ _ROMANIZED_PATTERNS = {
         r"(?:innu|naale|nale|mattannal)\s+(?:at\s+)?\d{1,2}|"
         r"(?:raavile|ravile|uchakku|vaikunneram|raathri)"
         r"\s+(?:\d{1,2}|pathu|pathara|randu|anchu)|"
-        r"(?:pathu|randu|anchu)\s+mani)(?!\w)",
+        r"(?:pathu|randu|anchu)\s+mani|"
+        r"ithara|ithentha|samgathi|vilikkunnath)(?!\w)",
         re.IGNORECASE,
     ),
     "ta-IN": re.compile(

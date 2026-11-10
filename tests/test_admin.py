@@ -196,7 +196,9 @@ async def test_admin_background_bundle_is_served(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_root_redirects_to_admin_ui(client: AsyncClient) -> None:
-    response = await client.get("/", follow_redirects=False)
-    assert response.status_code in {302, 307}
-    assert response.headers["location"] == "/admin/ui"
+async def test_root_serves_landing_page(client: AsyncClient) -> None:
+    response = await client.get("/")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "Build Indian-language voice agents" in response.text
+    assert "/demo" in response.text

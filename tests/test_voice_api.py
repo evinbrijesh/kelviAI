@@ -36,14 +36,19 @@ async def test_browser_voice_demo_is_separate_from_admin(client: AsyncClient) ->
     response = await client.get("/demo")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/html")
-    assert "Talk to KelviAI" in response.text
+    assert "Kelvi AI Voice Demo" in response.text
     assert "/admin/static/voice-demo.js" in response.text
-    assert "Use fictional names only" in response.text
-    assert "Non-production demo" in response.text
+    assert "Uses synthetic data" in response.text
     assert "api_key_id" not in response.text
 
     root = await client.get("/")
-    assert root.headers["location"] == "/admin/ui"
+    assert root.status_code == 200
+    assert "Build Indian-language voice agents" in root.text
+
+    how_it_works = await client.get("/how-it-works")
+    assert how_it_works.status_code == 200
+    assert "How Kelvi AI Works" in how_it_works.text
+
     for asset in ("voice-demo.js", "voice-capture.js"):
         assert (await client.get(f"/admin/static/{asset}")).status_code == 200
 
@@ -226,3 +231,23 @@ async def test_twilio_voice_webhook(
     )
     assert turn_resp.status_code == 200
     assert "<Response>" in turn_resp.text
+
+
+@pytest.mark.asyncio
+async def test_reset_voice_session(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = app.state.registry
+    monkeypatch.setattr(registry, "get_stt_adapter", lambda: MockSTT("നാളെ 10:00"))
+    monkeypatch.setattr(registry, "get_tts_adapter", lambda: MockTTS())
+
+    start_resp = await client.post(
+        "/api/voice/session/start",
+        json={"caller_phone": "+919000000099"},
+    )
+    call_sid = start_resp.json()["call_sid"]
+
+    reset_resp = await client.post(f"/api/voice/session/{call_sid}/reset")
+    assert reset_resp.status_code == 200
+    assert reset_resp.json()["status"] == "reset"
+    assert reset_resp.json()["call_sid"] == call_sid

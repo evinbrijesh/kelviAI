@@ -70,6 +70,7 @@ class EvonReasoningEngine:
             "retain_slot",
             "reject_or_reschedule",
             "query_saved_name",
+            "query_identity_or_purpose",
         )
 
         text_lower = text.lower()
@@ -368,6 +369,36 @@ class EvonReasoningEngine:
         )
         if any(re.search(pat, u_lower) for pat in query_patterns):
             return "query_saved_name"
+        identity_patterns = (
+            r"ആരാണ്\s*(?:വിളിക്കുന്നത്|സംസാരിക്കുന്നത്|ഇത്)?",
+            r"ആരാ\s*(?:വിളിക്കുന്നേ|സംസാരിക്കുന്നേ|വിളിച്ചേ|ഇത്)?",
+            r"ആരാ\s+നീ",
+            r"നിങ്ങൾ\s*ആരാണ്",
+            r"ഹു\s*ഇസ്\s*കോളിംഗ്",
+            r"hu\s*is\s*koling",
+            r"who\s*(?:'s|\s+is)\s+(?:this|calling|speaking)",
+            r"who\s+are\s+you",
+            r"what\s+is\s+your\s+name",
+            r"कौन\s*(?:बोल\s*रहा|है|हो)",
+            r"आप\s*कौन\s*हैं",
+            r"എന്തിനു\s*വേണ്ടി",
+            r"എന്തിനുവേണ്ടി",
+            r"എന്തിനാണ്",
+            r"എന്തിനാ\s*വിളിച്ച(?:ത്|േ)",
+            r"എന്താണ്\s*(?:ഈ\s*കോൾ|ഇത്|കേൾവി|വിഷയം|കാര്യം)",
+            r"എന്താ\s*(?:ഇത്|വിഷയം|കാര്യം|സംഭവം)",
+            r"മനസ്സിലായില്ല",
+            r"എങ്ങനെ\s*(?:യൂസ്|ഉപയോഗിക്ക|ചെയ്യുക)",
+            r"what\s+(?:is\s+this|is\s+this\s+for|is\s+this\s+call|can\s+you\s+do)",
+            r"why\s+are\s+you\s+calling",
+            r"what\s+do\s+you\s+do",
+            r"how\s+(?:to\s+use|can\s+you\s+help)",
+            r"किसलिए\s*(?:कॉल\s*किया|है)",
+            r"क्या\s*(?:काम\s*है|मदद\s*कर\s*सकते|करते\s*हो)",
+            r"समझ\s*नहीं\s*आया",
+        )
+        if any(re.search(pat, u_lower) for pat in identity_patterns):
+            return "query_identity_or_purpose"
         if re.search(r"അപ്പോഴത്തേക്കിന്\s*ബുക്ക്|ഇഷ്യൂ\s*ഇല്ല|no\s+issue|no\s+problem", u_lower):
             return "retain_slot"
         if caller_name:

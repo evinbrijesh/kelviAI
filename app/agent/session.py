@@ -127,6 +127,11 @@ class AgentSession:
         self.call_log.user_turn(user_utterance, language=self.language)
 
         if self.state in (AgentState.AWAITING_SLOT, AgentState.CLARIFYING):
+            if self._is_identity_or_purpose_query(user_utterance):
+                reply = self._t("identity_and_purpose")
+                self.call_log.agent_turn(reply)
+                self.state = AgentState.AWAITING_SLOT
+                return reply
             if self._is_cancellation_intent(user_utterance):
                 return await self._handle_cancellation_step(user_utterance)
             if self._is_reschedule_intent(user_utterance):
@@ -157,20 +162,29 @@ class AgentSession:
 
     def _set_language(self, text: str, hint: str | None = None) -> None:
         hinted = normalize_language(hint)
-        detected = hinted or (
-            detect_language(text)
-            if not self._language_locked
-            and self.state in (AgentState.AWAITING_SLOT, AgentState.CLARIFYING)
-            else None
-        )
-        if detected is None:
+        if hinted:
+            self.language = hinted
+            self.templates = templates_for(hinted)
+            self._language_locked = True
+            if self.call_log is not None:
+                self.session.add(self.call_log.call)
+                self.call_log.call.language = hinted
             return
-        self.language = detected
-        self.templates = templates_for(detected)
-        self._language_locked = True
-        if self.call_log is not None:
-            self.session.add(self.call_log.call)
-            self.call_log.call.language = detected
+
+        if self._language_locked or self.state in (
+            AgentState.AWAITING_NAME,
+            AgentState.AWAITING_CONFIRMATION,
+        ):
+            return
+
+        detected = detect_language(text)
+        if detected:
+            self.language = detected
+            self.templates = templates_for(detected)
+            self._language_locked = True
+            if self.call_log is not None:
+                self.session.add(self.call_log.call)
+                self.call_log.call.language = detected
 
     def hangup(self, reason: str = "Caller hung up before completing the request.") -> str:
         """End an in-progress call when the caller disconnects."""
@@ -204,7 +218,22 @@ class AgentSession:
             self.call_log.agent_turn(reply)
             return reply
 
+        if self._is_identity_or_purpose_query(user_utterance):
+            reply = self._t("identity_and_purpose")
+            self.call_log.agent_turn(reply)
+            self.state = AgentState.AWAITING_SLOT
+            return reply
+
         analysis = await self._reason_utterance(user_utterance)
+        if (
+            analysis is not None
+            and getattr(analysis, "intent", None) == "query_identity_or_purpose"
+        ):
+            reply = self._t("identity_and_purpose")
+            self.call_log.agent_turn(reply)
+            self.state = AgentState.AWAITING_SLOT
+            return reply
+
         if analysis is not None:
             resolution = analysis.resolution
             engine_name = analysis.engine_used
@@ -552,6 +581,7 @@ class AgentSession:
             "പ്രശ്നമില്ല", "ശരി", "യെസ്", "വേണ്ട", "വേണ്ടാ", "അല്ല", "ആണ്",
             "ആണു", "ഹലോ", "നമസ്കാരം", "ഹായ്", "എന്റെ", "എൻ്റെ", "പേര്",
             "ആരുടെ", "ഉറപ്പാക്കാമോ", "ചെയ്തോ", "ചെയ്തോളൂ", "അതിൽ",
+            "എന്നാട്ടോ", "ആണട്ടോ", "ആട്ടോ", "കേട്ടോ", "എന്നാണ്", "എന്നാ",
             "already", "said", "told", "earlier", "book", "booking",
             "please", "name", "patient", "issue", "no", "yes", "okay",
             "sure", "cancel", "reschedule", "hello", "hi", "hey",
@@ -576,9 +606,13 @@ class AgentSession:
             candidate,
             flags=re.IGNORECASE,
         ).strip()
-        # Strip trailing copulas
+        # Strip trailing copulas, discourse markers, and conversational particles
         candidate = re.sub(
-            r"(?:\s+(?:hai|he|hun|hoon|aanu|anu|ആണ്|ആണു|ആണ്\s+എന്ന്|ആണ്\s+എന്ന്\s+പറഞ്ഞ്|"
+            r"(?:\s+(?:hai|he|hun|hoon|aanu|anu|aanallo|ennatto|ennato|aatto|ketto|"
+            r"enna\s+ketto|ennaanu|ennan|enna|ennu|enne|"
+            r"ആണ്|ആണു|ആണല്ലോ|ആണേ|ആണട്ടോ|ആട്ടോ|കേട്ടോ|എന്നാട്ടോ|എന്നാ\s+കേട്ടോ|"
+            r"എന്നാണ്|എന്നാ|എന്നേ|എന്ന്|എന്ന്\s+തന്നെ|എന്നൊരു|എന്നുള്ളത്|"
+            r"ആണ്\s+എന്ന്|ആണ്\s+എന്ന്\s+പറഞ്ഞ്|"
             r"है|हूँ|हूं|आहे|হয়|ஆகும்|છે|ਹੈ))+$",
             "",
             candidate,
@@ -607,6 +641,59 @@ class AgentSession:
         )
         text_lower = text.lower()
         return any(re.search(pat, text_lower) for pat in query_patterns)
+
+    def _is_identity_or_purpose_query(self, text: str) -> bool:
+        lower = text.lower()
+        patterns = (
+            r"ഇതാരാ",
+            r"ഇതാരാണ്",
+            r"ഇതാര്",
+            r"ആരാണ്",
+            r"ആരാ",
+            r"വിളിക്കുന്നത്",
+            r"വിളിക്കുന്നേ",
+            r"വിളിച്ചത്",
+            r"വിളിച്ചേ",
+            r"സംസാരിക്കുന്നത്",
+            r"സംസാരിക്കുന്നേ",
+            r"ഹു\s*ഇസ്\s*കോളിംഗ്",
+            r"hu\s*is\s*koling",
+            r"ithara",
+            r"vilikkunnath",
+            r"vilikunath",
+            r"vilikkunne",
+            r"who\s*(?:'s|\s+is)\s+(?:this|calling|speaking)",
+            r"who\s+are\s+you",
+            r"what\s+is\s+your\s+name",
+            r"कौन\s*(?:बोल\s*रहा|है|हो)?",
+            r"आप\s*कौन\s*हैं",
+            r"kaun\s*(?:bol\s*raha|hai|ho)?",
+            r"aap\s*kaun",
+            r"ഇതെന്താ",
+            r"ഇതെന്താണ്",
+            r"സംഗതി",
+            r"ithentha",
+            r"samgathi",
+            r"എന്തിനു\s*വേണ്ടി",
+            r"എന്തിനുവേണ്ടി",
+            r"എന്തിനാണ്",
+            r"എന്തിനാ",
+            r"enthina",
+            r"enthinanu",
+            r"എന്താണ്\s*(?:ഈ\s*കോൾ|ഇത്|കേൾവി|വിഷയം|കാര്യം|സംഗതി)",
+            r"എന്താ\s*(?:ഈ\s*കോൾ|ഇത്|വിഷയം|കാര്യം|സംഭവം|സംഗതി)",
+            r"മനസ്സിലായില്ല",
+            r"manassilayilla",
+            r"എങ്ങനെ\s*(?:യൂസ്|ഉപയോഗിക്ക|ചെയ്യുക)",
+            r"what\s+(?:is\s+this|is\s+this\s+for|is\s+this\s+call|can\s+you\s+do)",
+            r"why\s+are\s+you\s+calling",
+            r"what\s+do\s+you\s+do",
+            r"how\s+(?:to\s+use|can\s+you\s+help)",
+            r"किसलिए\s*(?:कॉल\s*किया|है)",
+            r"क्या\s*(?:काम\s*है|मदद\s*कर\s*सकते|करते\s*हो|बात\s*है|मामला\s*है)",
+            r"समझ\s*नहीं\s*आया",
+        )
+        return any(re.search(pat, lower) for pat in patterns)
 
     def _is_slot_retention_confirmation(self, text: str) -> bool:
         retention_patterns = (
@@ -674,7 +761,8 @@ class AgentSession:
 
         # 1. Indic suffix patterns (e.g. "<Name> എന്ന പേരിൽ ബുക്ക് ചെയ്തോളൂ")
         suffix_patterns = (
-            rf"([{name_chars}\s]{{2,40}}?)\s+എന്ന\s+പേരി(?:ൽ|ലാ|ലാണ്|ൽത്തന്നെ)",
+            rf"([{name_chars}\s]{{2,40}}?)\s+(?:എന്ന|എന്നുള്ള|എന്നൊരു|എന്ന്\s*പറഞ്ഞ|എന്ന്\s*പറയുന്ന)?\s*പേരി(?:ൽ|ലാ|ലാണ്|ൽത്തന്നെ)",
+            rf"([{name_chars}\s]{{2,40}}?)\s+(?:ennulla|enna|ennoru)?\s*peri(?:l|la|lan)",
             rf"([{name_chars}\s]{{2,40}}?)\s+(?:के\s+नाम\s+से|ke\s+naam\s+se)",
             rf"([{name_chars}\s]{{2,40}}?)\s+(?:என்ற\s+பெயரில்|(?:enra|endra)\s+peyaril)",
         )

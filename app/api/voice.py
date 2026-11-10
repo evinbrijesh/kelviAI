@@ -21,6 +21,7 @@ from app.admin.routes import get_session
 from app.bridge.audio_utils import MAX_AUDIO_BYTES, AudioValidationError
 from app.bridge.voice_session import VoiceSessionManager
 from app.config import AppConfig, Settings
+from app.db.models import Booking, BookingStatus
 from app.llm.language import SUPPORTED_LANGUAGE_CODES
 from app.llm.registry import AdapterRegistry
 from app.llm.transliteration import transliterate_indic
@@ -327,6 +328,29 @@ async def hangup_voice_session(call_sid: str) -> dict[str, str]:
     voice_session.hangup()
     _manager.remove(call_sid)
     return {"status": "hungup", "call_sid": call_sid}
+
+
+@router.post("/session/{call_sid}/reset")
+async def reset_voice_session(
+    call_sid: str,
+    session: Annotated[Session, Depends(get_session)],
+) -> dict[str, str]:
+    """Reset a demo voice session, cancel demo bookings made during it, and evict."""
+    voice_session = _manager.get(call_sid)
+    if voice_session is not None:
+        try:
+            if voice_session.agent_session.call_log:
+                call_id = voice_session.agent_session.call.id
+                bookings = session.query(Booking).filter(Booking.call_id == call_id).all()
+                for b in bookings:
+                    b.status = str(BookingStatus.CANCELLED)
+                session.commit()
+            voice_session.hangup()
+        except Exception:
+            logger.exception("Error cleaning up bookings during session reset for %s", call_sid)
+        finally:
+            _manager.remove(call_sid)
+    return {"status": "reset", "call_sid": call_sid}
 
 
 @router.post("/webhook/twilio")

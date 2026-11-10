@@ -684,3 +684,124 @@ async def test_conversational_name_query_and_retention(
         assert b.patient_name == "മിസ്റ്റർ ഹൂ ഇസ് ദ ബോസ്"
 
 
+@pytest.mark.asyncio
+async def test_agent_session_identity_and_purpose_query(
+    database: Database, agent_config: Any
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    resolver = CustomDateTimeResolver()
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000017",
+        )
+        agent.start()
+
+        # Turn 1: User asks what this call is for and who is calling in Malayalam
+        reply = await agent.process_turn(
+            "ഹലോ, ഇത് എന്തിനുവേണ്ടി യൂസ് ചെയ്യുക എന്ന് എനിക്ക് മനസ്സിലായില്ല. ഹു ഇസ് കോളിംഗ്?"
+        )
+        # Should explain clinic assistant purpose instead of giving clarification error
+        assert "നിലാ ഫാമിലി ക്ലിനിക്കിന്റെ" in reply and "കേൾവി AI അസിസ്റ്റന്റ്" in reply
+        assert agent.state == AgentState.AWAITING_SLOT
+        assert agent.clarification_count == 0
+
+        # Turn 2: Exact colloquial phrasing from user test screenshot
+        reply2 = await agent.process_turn(
+            "ആ, ഇതാരാ വിളിക്കുന്നത്? ഇതെന്താ സംഗതി?"
+        )
+        assert "നിലാ ഫാമിലി ക്ലിനിക്കിന്റെ" in reply2 and "കേൾവി AI അസിസ്റ്റന്റ്" in reply2
+        assert agent.state == AgentState.AWAITING_SLOT
+        assert agent.clarification_count == 0
+
+        # Turn 3: Transliterated / Romanized query
+        reply3 = await agent.process_turn(
+            "a, ithara vilikkunnath? ithentha samgathi?"
+        )
+        assert "നിലാ ഫാമിലി ക്ലിനിക്കിന്റെ" in reply3 and "കേൾവി AI അസിസ്റ്റന്റ്" in reply3
+        assert agent.state == AgentState.AWAITING_SLOT
+        assert agent.clarification_count == 0
+
+
+@pytest.mark.asyncio
+async def test_ennulla_name_suffix_and_language_lock_protection(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    resolver = CustomDateTimeResolver()
+    target_day = next_working_day()
+    day_str = target_day.isoformat()
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000018",
+        )
+        agent.start()
+
+        # Turn 1: Slot requested in Malayalam
+        await agent.process_turn(f"{day_str} രാവിലെ 10 മണിക്ക് അപ്പോയിൻമെൻറ്റ് വേണം")
+        assert agent.state == AgentState.AWAITING_NAME
+        assert agent.language == "ml-IN"
+
+        # Turn 2: Caller provides name using 'എന്നുള്ള പേരിൽ'
+        r2 = await agent.process_turn("ജോൺസൺ എന്നുള്ള പേരിൽ ബുക്ക് ചെയ്തോളൂ.")
+        assert agent.caller_name == "ജോൺസൺ"
+        assert agent.state == AgentState.AWAITING_CONFIRMATION
+        assert "ജോൺസൺ" in r2
+        assert agent.language == "ml-IN"
+
+        # Turn 3: Confirmation turn in Malayalam
+        r3 = await agent.process_turn("അതെ, ബുക്ക് ചെയ്തോളൂ")
+        assert agent.state == AgentState.COMPLETED
+        assert agent.language == "ml-IN"
+        assert "ബുക്ക് ചെയ്തു" in r3
+
+
+@pytest.mark.asyncio
+async def test_discourse_marker_ennaatto_stripped_from_name(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    resolver = CustomDateTimeResolver()
+    target_day = next_working_day()
+    day_str = target_day.isoformat()
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=resolver,
+            caller_phone="+919000000019",
+        )
+        agent.start()
+
+        # Turn 1: Slot requested
+        await agent.process_turn(f"{day_str} രാവിലെ 10 മണിക്ക് അപ്പോയിൻമെൻറ്റ് വേണം")
+        assert agent.state == AgentState.AWAITING_NAME
+
+        # Turn 2: User provides name with colloquial discourse marker "എന്നാട്ടോ"
+        r2 = await agent.process_turn(
+            "എങ്കിൽ പിന്നെ ആ സ്ലോട്ട് ബുക്ക് ചെയ്തേക്കാമോ? എന്റെ പേര് ജോൺസൺ എന്നാട്ടോ."
+        )
+        assert agent.caller_name == "ജോൺസൺ"
+        assert "എന്നാട്ടോ" not in agent.caller_name
+        assert agent.state == AgentState.AWAITING_CONFIRMATION
+        assert "ജോൺസൺ" in r2
+        assert "ജോൺസൺ എന്നാട്ടോ" not in r2
+
+
+
+
+

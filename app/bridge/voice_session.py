@@ -13,7 +13,7 @@ from app.bridge.audio_utils import (
 )
 from app.config import AppConfig
 from app.llm.interfaces import DateTimeResolver, STTAdapter, TTSAdapter
-from app.llm.language import resolve_language
+from app.llm.language import detect_language, normalize_language, resolve_language
 from app.llm.transliteration import transliterate_indic
 
 logger = logging.getLogger(__name__)
@@ -140,11 +140,21 @@ class VoiceSession:
         caller_transcript = stt_result.text.strip()
 
         # 2. Process turn through AgentSession in the caller's detected language
-        detected_language = resolve_language(
-            caller_transcript,
-            hint=stt_result.language,
-            default=self.agent_session.language,
-        )
+        # If the transcript contains an explicit Indic script (e.g. Malayalam), trust that
+        # ground-truth script over any probabilistic acoustic hint from the STT engine.
+        explicit_lang = normalize_language(language)
+        if explicit_lang:
+            detected_language = explicit_lang
+        else:
+            script_lang = detect_language(caller_transcript)
+            if script_lang and script_lang != "en-IN":
+                detected_language = script_lang
+            else:
+                detected_language = resolve_language(
+                    caller_transcript,
+                    hint=stt_result.language,
+                    default=self.agent_session.language,
+                )
         t_agent = time.perf_counter()
         agent_reply = await self.agent_session.process_turn(
             caller_transcript, language=detected_language

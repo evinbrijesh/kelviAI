@@ -3,7 +3,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response, status
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.admin.routes import STATIC_DIR
@@ -76,13 +76,18 @@ async def security_headers_middleware(
 
 
 @app.get("/", include_in_schema=False)
-def index() -> RedirectResponse:
-    return RedirectResponse(url="/admin/ui")
+def index() -> FileResponse:
+    return FileResponse(STATIC_DIR / "landing.html", media_type="text/html")
 
 
 @app.get("/demo", include_in_schema=False)
 def voice_demo() -> FileResponse:
     return FileResponse(STATIC_DIR / "voice.html", media_type="text/html")
+
+
+@app.get("/how-it-works", include_in_schema=False)
+def how_it_works() -> FileResponse:
+    return FileResponse(STATIC_DIR / "how-it-works.html", media_type="text/html")
 
 
 @app.get("/health")

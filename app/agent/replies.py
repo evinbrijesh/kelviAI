@@ -41,6 +41,11 @@ class ReplyTemplates:
     reschedule_not_found: str = (
         "ക്ഷമിക്കണം, മാറ്റിവെക്കാൻ ഈ റഫറൻസിൽ അപ്പോയിന്റ്മെന്റ് കണ്ടെത്താൻ കഴിഞ്ഞില്ല."
     )
+    identity_and_purpose: str = (
+        "നമസ്കാരം! ഞാൻ നിലാ ഫാമിലി ക്ലിനിക്കിന്റെ കേൾവി AI അസിസ്റ്റന്റ് ആണ്. "
+        "ഡോക്ടറെ കാണാനുള്ള അപ്പോയിന്റ്മെന്റുകൾ പരിശോധിക്കാനും ബുക്ക് ചെയ്യാനും "
+        "സഹായിക്കാനാണ് ഞാൻ ഇവിടെയുള്ളത്. താങ്കൾക്ക് ഏത് ദിവസമാണ് സമയം വേണ്ടത്?"
+    )
 
 
 _TEMPLATES: dict[str, ReplyTemplates] = {
@@ -80,6 +85,11 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         cancelled="{clinic}-ൽ {reference}-ാം നമ്പർ അപ്പോയിന്റ്മെന്റ് വിജയകരമായി റദ്ദാക്കി. നന്ദി!",
         cancel_not_found="ക്ഷമിക്കണം, ഈ റഫറൻസിൽ അപ്പോയിന്റ്മെന്റ് കണ്ടെത്താൻ കഴിഞ്ഞില്ല.",
         ask_cancel_ref="അപ്പോയിന്റ്മെന്റ് റദ്ദാക്കാൻ ദയവായി ബുക്കിംഗ് റഫറൻസ് നമ്പർ വ്യക്തമാക്കാമോ?",
+        identity_and_purpose=(
+            "നമസ്കാരം! ഞാൻ നിലാ ഫാമിലി ക്ലിനിക്കിന്റെ കേൾവി AI അസിസ്റ്റന്റ് ആണ്. "
+            "ഡോക്ടറെ കാണാനുള്ള അപ്പോയിന്റ്മെന്റുകൾ പരിശോധിക്കാനും ബുക്ക് ചെയ്യാനും "
+            "സഹായിക്കാനാണ് ഞാൻ ഇവിടെയുള്ളത്. താങ്കൾക്ക് ഏത് ദിവസമാണ് സമയം വേണ്ടത്?"
+        ),
     ),
     "hi-IN": ReplyTemplates(
         clarification="क्षमा करें, कृपया बताइए कि आप कौन सी तारीख और समय चाहते हैं?",
@@ -106,6 +116,11 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         saved_name_confirm=(
             "आपका नाम '{name}' दर्ज है। क्या {clinic} में {date} को {time} बजे "
             "अपॉइंटमेंट की पुष्टि करें?"
+        ),
+        identity_and_purpose=(
+            "नमस्ते! मैं नीला फैमिली क्लिनिक की केलवी AI वॉइस असिस्टेंट हूँ। "
+            "मैं डॉक्टर से मिलने के लिए अपॉइंटमेंट बुक करने और समय देखने में आपकी सहायता करती हूँ। "
+            "आपको किस दिन का समय चाहिए?"
         ),
     ),
     "mr-IN": ReplyTemplates(
@@ -309,6 +324,11 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         ask_reschedule_ref="Could you please share your booking reference number to reschedule?",
         ask_reschedule_slot="What new date and time would you like for reference {reference}?",
         reschedule_not_found="Sorry, no booking was found matching that reference to reschedule.",
+        identity_and_purpose=(
+            "Hello! I am Kelvi AI, the virtual appointment assistant for Nila Family Clinic. "
+            "I can help you check availability, book doctor consultations, or cancel appointments. "
+            "Which date and time would you like to schedule?"
+        ),
     ),
 }
 
