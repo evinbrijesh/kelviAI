@@ -400,29 +400,29 @@
 
   <!-- Framework vs Reference Application -->
   <section class="section">
-    <h2 class="section-title">The Framework &amp; The Reference Application</h2>
+    <h2 class="section-title">The Framework &amp; Reference Applications</h2>
     <p class="section-desc">
-      Kelvi AI decouples voice orchestration, conversational state, and telephony safety from domain business logic.
+      Kelvi AI decouples Indian voice orchestration, conversational state, and telephony safety from domain business logic.
     </p>
 
     <div class="dual-layer-grid">
       <div class="layer-card featured">
         <div class="layer-tag">Layer 1: The Core Framework</div>
-        <h3 class="layer-title">Kelvi AI Agent Engine</h3>
+        <h3 class="layer-title">Kelvi AI Engine &amp; Indic Layer</h3>
         <p class="layer-text">
-          An extensible runtime providing zero-latency hybrid gating, conversational memory trap prevention, spoken datetime prosody tuning, and dual-script transliteration for Indian telephony.
+          An extensible open-source runtime with sovereign Indic script detection, discourse marker stripping, spoken datetime prosody, the @tool decorator, and project scaffolding.
         </p>
         <ul class="layer-features">
-          <li><strong>Declarative Agent Spec:</strong> Define persona, language, voices, and tools via clean YAML.</li>
+          <li><strong>The @tool Decorator:</strong> Automatic JSON schema generation from typed Python functions with safety confirmation checks.</li>
           <li><strong>Dual-Engine Gating:</strong> Fast deterministic Indic rules (&lt;2ms) with Evon v3.3 reasoning fallback.</li>
-          <li><strong>Credit &amp; Token Shield:</strong> LRU speech synthesis caching and 0-byte audio guards.</li>
+          <li><strong>CLI Scaffolding:</strong> Generate ready-to-run agents in 5 seconds via <code>kelvi init</code>.</li>
           <li><strong>Telephony Security:</strong> HMAC-SHA1 webhook verification, IDOR safeguards, and 10MB bounds.</li>
         </ul>
       </div>
 
       <div class="layer-card">
-        <div class="layer-tag">Layer 2: The Reference Application</div>
-        <h3 class="layer-title">Outpatient Clinic Assistant</h3>
+        <div class="layer-tag">Layer 2: Healthcare Reference App</div>
+        <h3 class="layer-title">Nila Family Clinic Assistant</h3>
         <p class="layer-text">
           A hosted scheduling assistant demonstrating stateful appointment booking, slot conflict resolution, and colloquial code-mixing (Manglish, Hinglish) over browser audio and Twilio.
         </p>
@@ -431,6 +431,20 @@
           <li><strong>Conflict Suggestion:</strong> Recommends nearest available slot if requested hour is taken.</li>
           <li><strong>Dual-Script Transliteration:</strong> Live Latin phonetic badges for non-native listeners.</li>
           <li><strong>Audit Trail:</strong> Full chronological state transitions, latencies, and tool calls.</li>
+        </ul>
+      </div>
+
+      <div class="layer-card">
+        <div class="layer-tag">Layer 2: Logistics Reference App</div>
+        <h3 class="layer-title">QuickBites Delivery Assistant</h3>
+        <p class="layer-text">
+          A quick-commerce voice bot proving framework reusability in under 60 lines of Python. Features live order tracking, rider voice bridge, and safety confirmation guardrails.
+        </p>
+        <ul class="layer-features">
+          <li><strong>Live Order Tracking:</strong> Instant rider status and ETA resolution in Malayalam, Hindi, and English.</li>
+          <li><strong>Confirmation Guardrail:</strong> Prevents order cancellation without explicit caller confirmation.</li>
+          <li><strong>Discourse Stripping:</strong> Cleans conversational particles (<em>"bhaiya"</em>, <em>"chetta"</em>) from entity inputs.</li>
+          <li><strong>Zero Over-Engineering:</strong> Standalone declarative logic ready for any e-commerce catalog.</li>
         </ul>
       </div>
     </div>
@@ -495,28 +509,36 @@
     </div>
   </section>
 
-  <!-- Declarative YAML Demo -->
+  <!-- Declarative YAML & Python Tools -->
   <section class="section">
-    <h2 class="section-title">Declarative Agent Configuration</h2>
-    <p class="section-desc">Create production voice agents in standard YAML without touching audio drivers or SIP gateways:</p>
+    <h2 class="section-title">Declarative Tools &amp; Agent Configuration</h2>
+    <p class="section-desc">Define production voice tools in pure Python with type hints and configure agent behavior in YAML:</p>
     <div class="code-callout">
-<pre><code>agent:
-  name: "clinic-scheduler"
-  language: "ml-IN"
-  greeting: "നമസ്കാരം, ഞാൻ കേൾവി AI അസിസ്റ്റന്റ് ആണ്. എങ്ങനെ സഹായിക്കാം?"
-  persona: "Helpful medical appointment assistant"
+<pre><code># 1. Define custom tools with safety confirmation in Python
+from kelvi import tool
 
-model:
-  provider: "gnani"
-  stt: { model: "prisma-v3.0", language: "indic-auto" }
-  tts: { model: "timbre-v2.5", voice: "Reshma" }
-  date_time_resolver: "evon"
+@tool(
+    name="cancel_order",
+    description="Cancel active customer order before dispatch",
+    requires_confirmation=True,  # Safety guardrail: auto-asks confirmation in caller's language!
+    confirmation_prompt={
+        "ml-IN": "ഓർഡർ റദ്ദാക്കണമെന്ന് ഉറപ്പാണോ?",
+        "hi-IN": "क्या आप आर्डर रद्द करना चाहते हैं?",
+        "en-IN": "Are you sure you want to cancel your order?",
+    }
+)
+async def cancel_order(order_id: str) -> dict:
+    return {"status": "cancelled", "refund": "₹340"}
+
+# 2. Or configure a full agent in declarative agent.yaml
+agent:
+  name: "Nila Family Clinic Assistant"
+  primary_language: "ml-IN"
+  supported_languages: ["ml-IN", "hi-IN", "en-IN"]
 
 tools:
   - name: "check_availability"
-  - name: "book_slot"
-  - name: "cancel_booking"
-  - name: "reschedule_booking"</code></pre>
+  - name: "book_appointment"</code></pre>
     </div>
   </section>
 </main>

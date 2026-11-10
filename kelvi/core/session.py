@@ -7,11 +7,13 @@ from kelvi.indic.language import DEFAULT_LANGUAGE
 
 _AFFIRMATIVE_PATTERNS = {
     "ml-IN": re.compile(
-        r"(?:\b(?:ശരി|അതെ|ഉറപ്പാണ്|ചെയ്തോളൂ|ചെയ്തോ|ഓക്കെ|ആണ്|yes|yeah|sure|confirm)\b|റദ്ദാക്കിക്കോളൂ)",
+        r"(?:^|\s|[.,!?])(?:ശരി|അതെ|ഉറപ്പാണ്|ചെയ്തോളൂ|ചെയ്തോ|ഓക്കെ|ആണ്|"
+        r"റദ്ദാക്കിക്കോളൂ|yes|yeah|sure|confirm)(?:$|\s|[.,!?])",
         re.IGNORECASE,
     ),
     "hi-IN": re.compile(
-        r"\b(?:हाँ|हां|हाँजी|ठीक है|कर दीजिए|ज़रूर|sahi|theek|haan|yes|yeah|sure)\b",
+        r"(?:^|\s|[.,!?])(?:हाँ|हां|हाँजी|ठीक है|कर दीजिए|ज़रूर|"
+        r"sahi|theek|haan|yes|yeah|sure)(?:$|\s|[.,!?])",
         re.IGNORECASE,
     ),
     "en-IN": re.compile(
@@ -22,11 +24,13 @@ _AFFIRMATIVE_PATTERNS = {
 
 _NEGATIVE_PATTERNS = {
     "ml-IN": re.compile(
-        r"(?:\b(?:വേണ്ട|ഇല്ല|റദ്ദാക്കണ്ട|മാറ്റണ്ട|വേണ്ടതില്ല|no|nope|cancel|stop)\b)",
+        r"(?:^|\s|[.,!?])(?:വേണ്ട|ഇല്ല|റദ്ദാക്കണ്ട|മാറ്റണ്ട|വേണ്ടതില്ല|"
+        r"no|nope|cancel|stop)(?:$|\s|[.,!?])",
         re.IGNORECASE,
     ),
     "hi-IN": re.compile(
-        r"\b(?:नहीं|मत करो|रहने दो|रुकिए|nahi|nahin|mat karo|no|nope|cancel)\b",
+        r"(?:^|\s|[.,!?])(?:नहीं|मत करो|रहने दो|रुकिए|nahi|nahin|mat karo|"
+        r"no|nope|cancel)(?:$|\s|[.,!?])",
         re.IGNORECASE,
     ),
     "en-IN": re.compile(

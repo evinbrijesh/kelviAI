@@ -251,3 +251,51 @@ async def test_reset_voice_session(
     assert reset_resp.status_code == 200
     assert reset_resp.json()["status"] == "reset"
     assert reset_resp.json()["call_sid"] == call_sid
+
+
+@pytest.mark.asyncio
+async def test_voice_session_delivery_agent(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = app.state.registry
+    monkeypatch.setattr(registry, "get_tts_adapter", lambda: MockTTS())
+
+    start_resp = await client.post(
+        "/api/voice/session/start",
+        json={"caller_phone": "+919888877771", "channel": "browser_demo", "agent_type": "delivery"},
+    )
+    assert start_resp.status_code == 200
+    start_data = start_resp.json()
+    call_sid = start_data["call_sid"]
+    assert "ക്വിക്ക്ബൈറ്റ്സ്" in start_data["greeting"]
+
+    # 1. Track order text turn
+    track_resp = await client.post(
+        f"/api/voice/session/{call_sid}/text-turn",
+        json={"text": "എന്റെ ഓർഡർ എവിടെ എത്തി?"},
+    )
+    assert track_resp.status_code == 200
+    track_data = track_resp.json()
+    assert track_data["xray"]["tool_invoked"] == "track_order"
+    assert "സുരേഷ്" in track_data["agent_reply"]
+    assert "12" in track_data["agent_reply"]
+
+    # 2. Cancel order requires confirmation
+    cancel_resp = await client.post(
+        f"/api/voice/session/{call_sid}/text-turn",
+        json={"text": "ഓർഡർ ക്യാൻസൽ ചെയ്യണം"},
+    )
+    assert cancel_resp.status_code == 200
+    cancel_data = cancel_resp.json()
+    assert cancel_data["state"] == "awaiting_confirmation"
+    assert "ഉറപ്പാണോ" in cancel_data["agent_reply"]
+
+    # 3. Confirm cancellation
+    confirm_resp = await client.post(
+        f"/api/voice/session/{call_sid}/text-turn",
+        json={"text": "അതെ"},
+    )
+    assert confirm_resp.status_code == 200
+    confirm_data = confirm_resp.json()
+    assert confirm_data["xray"]["tool_invoked"] == "cancel_order"
+    assert "റദ്ദാക്കി" in confirm_data["agent_reply"]

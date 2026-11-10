@@ -128,9 +128,43 @@
     border-radius: 6px;
   }
 
+  /* Reference Agent Selector */
+  .agent-select-section {
+    margin: 20px 0 16px;
+  }
+  .agent-tabs {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .agent-tab {
+    font: 600 14px/1.4 var(--sans);
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .agent-tab:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+  .agent-tab.active {
+    background: var(--accent);
+    color: #05130c;
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+
   /* Interactive Quick-Start Scenarios */
   .scenarios-section {
-    margin: 24px 0 32px;
+    margin: 16px 0 32px;
   }
   .scenarios-label {
     font: 12px/1.4 var(--mono);
@@ -571,25 +605,37 @@
     <div class="demo-tag">Hosted Reference Demonstration</div>
     <h1>Kelvi AI Voice Demo</h1>
     <p class="intro-text">
-      Try an Indian-language voice agent. This example demonstrates outpatient appointment booking using fictional clinic data over the Gnani Artha stack.
+      Try an Indian-language voice agent. Switch between the outpatient clinic scheduler and the quick-commerce delivery assistant over the Gnani Artha stack.
     </p>
     <div class="privacy-notice">
       <span>🔒 Uses synthetic data. Audio recordings are not stored. Microphone access is required for voice mode.</span>
     </div>
   </div>
 
-  <!-- Quick-Start Scenario Buttons for Judges & Visitors -->
-  <section class="scenarios-section">
-    <div class="scenarios-label">Quick-Start Test Scenarios (Click to try):</div>
+  <!-- Reference Agent Domain Switcher -->
+  <div class="agent-select-section" aria-label="Choose reference agent domain">
+    <div class="agent-tabs" role="tablist">
+      <button type="button" class="agent-tab active" id="tab-clinic" role="tab" aria-selected="true" data-agent="clinic">
+        🏥 Nila Family Clinic (Healthcare)
+      </button>
+      <button type="button" class="agent-tab" id="tab-delivery" role="tab" aria-selected="false" data-agent="delivery">
+        🛵 QuickBites Delivery (Quick-Commerce)
+      </button>
+    </div>
+  </div>
+
+  <!-- Quick-Start Scenario Buttons for Clinic -->
+  <section class="scenarios-section" id="scenarios-clinic">
+    <div class="scenarios-label">Clinic Test Scenarios (Click to try):</div>
     <div class="scenarios-grid">
       <button type="button" class="scenario-card" data-prompt="നാളെ രാവിലെ 10 മണിക്ക് അപ്പോയിന്റ്മെന്റ് വേണം">
         <span class="scenario-title">1. Try Malayalam booking →</span>
         <span class="scenario-prompt">"നാളെ രാവിലെ 10 മണിക്ക് അപ്പോയിന്റ്മെന്റ് വേണം"</span>
-        <span class="scenario-note">Natural date &amp; time normalization in colloquial Malayalam</span>
+        <span class="scenario-note">Natural date and time normalization in colloquial Malayalam</span>
       </button>
 
       <button type="button" class="scenario-card" data-prompt="Mujhe kal subah 10 baje appointment chahiye">
-        <span class="scenario-title">2. Try Hindi–Malayalam switching →</span>
+        <span class="scenario-title">2. Try Hindi to Malayalam switching →</span>
         <span class="scenario-prompt">"Mujhe kal subah 10 baje appointment chahiye"</span>
         <span class="scenario-note">Code-mixed Hinglish request triggering cross-language transition</span>
       </button>
@@ -597,7 +643,31 @@
       <button type="button" class="scenario-card" data-prompt="Naale 10 manikku slot undo?">
         <span class="scenario-title">3. Try an unavailable slot →</span>
         <span class="scenario-prompt">"Naale 10 manikku slot undo?"</span>
-        <span class="scenario-note">10:00 AM is booked → alternative suggested → confirms on agreement</span>
+        <span class="scenario-note">10:00 AM is booked, alternative suggested, confirms on agreement</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Quick-Start Scenario Buttons for Delivery -->
+  <section class="scenarios-section" id="scenarios-delivery" hidden>
+    <div class="scenarios-label">Delivery Support Scenarios (Click to try):</div>
+    <div class="scenarios-grid">
+      <button type="button" class="scenario-card" data-prompt="എന്റെ ഓർഡർ എവിടെ എത്തി?">
+        <span class="scenario-title">1. Track Live Order Status →</span>
+        <span class="scenario-prompt">"എന്റെ ഓർഡർ എവിടെ എത്തി?"</span>
+        <span class="scenario-note">Fetches live rider status, ETA, and assigned partner name</span>
+      </button>
+
+      <button type="button" class="scenario-card" data-prompt="ഓർഡർ ക്യാൻസൽ ചെയ്യണം">
+        <span class="scenario-title">2. Cancellation Safety Guardrail →</span>
+        <span class="scenario-prompt">"ഓർഡർ ക്യാൻസൽ ചെയ്യണം"</span>
+        <span class="scenario-note">Requires confirmation: asks "ഓർഡർ റദ്ദാക്കണമെന്ന് ഉറപ്പാണോ?"</span>
+      </button>
+
+      <button type="button" class="scenario-card" data-prompt="Bhaiya, delivery partner se baat karwao">
+        <span class="scenario-title">3. Connect to Delivery Rider →</span>
+        <span class="scenario-prompt">"Bhaiya, delivery partner se baat karwao"</span>
+        <span class="scenario-note">Initiates partner voice bridge call in Hindi</span>
       </button>
     </div>
   </section>

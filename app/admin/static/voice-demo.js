@@ -40,6 +40,7 @@ let audioUrl = null;
 let generation = 0;
 let audioEnded = null;
 let previousLanguage = null;
+let currentAgent = 'clinic';
 
 function controls() {
   const isCallActive = Boolean(callSid);
@@ -398,7 +399,8 @@ function updateXray(xray) {
   if (el['xray-tool']) {
     if (xray.tool_invoked) {
       const t = xray.tool_invoked;
-      el['xray-tool'].textContent = `${t.name} → ${t.status || 'executed'}`;
+      const toolText = typeof t === 'string' ? t : `${t.name} → ${t.status || 'executed'}`;
+      el['xray-tool'].textContent = toolText;
     } else {
       el['xray-tool'].textContent = 'Direct dialogue response';
     }
@@ -471,13 +473,15 @@ async function startDemoCall() {
   if (el.result) el.result.hidden = true;
   if (el['lang-switch-alert']) el['lang-switch-alert'].style.display = 'none';
 
-  setMode('connecting', 'Starting session...', 'Synthesizing sovereign opening greeting in Malayalam.');
+  setMode('connecting', 'Starting session...', currentAgent === 'clinic'
+    ? 'Synthesizing sovereign opening greeting in Malayalam.'
+    : 'Starting QuickBites Delivery Assistant in English and Malayalam.');
 
   try {
     const start = await request('/api/voice/session/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel: 'browser_demo' }),
+      body: JSON.stringify({ channel: 'browser_demo', agent_type: currentAgent }),
     });
     callSid = start.call_sid;
     previousLanguage = start.language;
@@ -534,6 +538,35 @@ if (el.record) {
 }
 
 if (el['reset-demo']) el['reset-demo'].addEventListener('click', resetDemoSession);
+
+const tabClinic = document.getElementById('tab-clinic');
+const tabDelivery = document.getElementById('tab-delivery');
+const secClinic = document.getElementById('scenarios-clinic');
+const secDelivery = document.getElementById('scenarios-delivery');
+
+function switchAgent(agent) {
+  if (currentAgent === agent) return;
+  currentAgent = agent;
+  if (agent === 'clinic') {
+    tabClinic?.classList.add('active');
+    tabClinic?.setAttribute('aria-selected', 'true');
+    tabDelivery?.classList.remove('active');
+    tabDelivery?.setAttribute('aria-selected', 'false');
+    if (secClinic) secClinic.hidden = false;
+    if (secDelivery) secDelivery.hidden = true;
+  } else {
+    tabDelivery?.classList.add('active');
+    tabDelivery?.setAttribute('aria-selected', 'true');
+    tabClinic?.classList.remove('active');
+    tabClinic?.setAttribute('aria-selected', 'false');
+    if (secDelivery) secDelivery.hidden = false;
+    if (secClinic) secClinic.hidden = true;
+  }
+  void resetDemoSession();
+}
+
+if (tabClinic) tabClinic.addEventListener('click', () => switchAgent('clinic'));
+if (tabDelivery) tabDelivery.addEventListener('click', () => switchAgent('delivery'));
 
 if (el.end) {
   el.end.addEventListener('click', async () => {

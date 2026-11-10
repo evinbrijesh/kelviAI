@@ -46,12 +46,24 @@ class VoiceSession:
         tts_adapter: TTSAdapter,
         *,
         default_language: str = "indic-auto",
+        agent_type: str = "clinic",
     ) -> None:
         self.agent_session = agent_session
         self.stt = stt_adapter
         self.tts = tts_adapter
         self.default_language = default_language
         self.latest_audio: bytes | None = None
+        self.agent_type = agent_type
+        if agent_type == "delivery":
+            from examples.delivery_agent.app import create_delivery_engine
+            from kelvi import Session as KelviSession
+            self.delivery_engine = create_delivery_engine()
+            self.delivery_session = KelviSession(
+                session_id=agent_session.call_sid, language="ml-IN"
+            )
+        else:
+            self.delivery_engine = None
+            self.delivery_session = None
 
     @property
     def call_sid(self) -> str:
@@ -86,6 +98,42 @@ class VoiceSession:
 
     async def start(self, *, emit_greeting: bool = True) -> VoiceTurnResult:
         """Start agent session, synthesize greeting, and commit initial turn."""
+        if self.agent_type == "delivery" and self.delivery_session is not None:
+            greeting_text = (
+                "നമസ്കാരം! ക്വിക്ക്ബൈറ്റ്സ് സപ്പോർട്ടിൽ നിന്നാണ്. "
+                "ഓർഡർ സംബന്ധിച്ച് എന്ത് സഹായമാണ് വേണ്ടത്?"
+            )
+            t_start = time.perf_counter()
+            tts_result = await self.tts.synthesize(
+                greeting_text, language=self.delivery_session.language
+            )
+            tts_ms = round((time.perf_counter() - t_start) * 1000, 2)
+            self.latest_audio = tts_result.audio
+            self.agent_session.session.commit()
+            latencies = {"tts_ms": tts_ms}
+            return VoiceTurnResult(
+                caller_transcript="",
+                agent_reply=greeting_text,
+                audio=tts_result.audio,
+                sample_rate=tts_result.sample_rate,
+                audio_format=tts_result.format,
+                state="active",
+                is_terminal=False,
+                language=self.delivery_session.language,
+                booking_id=None,
+                latencies_ms=latencies,
+                xray={
+                    "language": self.delivery_session.language,
+                    "agent": "QuickBites Delivery Assistant",
+                    "latencies_ms": latencies,
+                    "sovereign_stack": {
+                        "stt": self.agent_session.config.model.stt.model,
+                        "reasoning": "Kelvi Core Engine",
+                        "tts": self.agent_session.config.model.tts.model,
+                    },
+                },
+            )
+
         greeting_text = self.agent_session.start(emit_greeting=emit_greeting)
 
         t_start = time.perf_counter()
@@ -138,6 +186,62 @@ class VoiceSession:
         stt_result = await self.stt.transcribe(prepared_audio, language=lang, **kwargs)
         stt_ms = round((time.perf_counter() - t_stt) * 1000, 2)
         caller_transcript = stt_result.text.strip()
+
+        if (
+            self.agent_type == "delivery"
+            and self.delivery_engine is not None
+            and self.delivery_session is not None
+        ):
+            t_agent = time.perf_counter()
+            turn_res = await self.delivery_engine.process_turn(
+                self.delivery_session, caller_transcript
+            )
+            agent_ms = round((time.perf_counter() - t_agent) * 1000, 2)
+            agent_reply = turn_res.reply_text
+
+            t_tts = time.perf_counter()
+            tts_result = await self.tts.synthesize(
+                agent_reply, language=self.delivery_session.language, **kwargs
+            )
+            tts_ms = round((time.perf_counter() - t_tts) * 1000, 2)
+            self.latest_audio = tts_result.audio
+            self.agent_session.session.commit()
+
+            latencies = {
+                "stt_ms": stt_ms,
+                "agent_ms": agent_ms,
+                "tts_ms": tts_ms,
+                "total_ms": round(stt_ms + agent_ms + tts_ms, 2),
+            }
+            caller_translit = transliterate_indic(
+                caller_transcript, self.delivery_session.language
+            )
+            agent_translit = transliterate_indic(
+                agent_reply, self.delivery_session.language
+            )
+            xray_data = dict(turn_res.xray)
+            xray_data["latencies_ms"] = latencies
+            xray_data["tool_invoked"] = turn_res.tool_executed
+            xray_data["sovereign_stack"] = {
+                "stt": self.agent_session.config.model.stt.model,
+                "reasoning": "Kelvi Core Engine",
+                "tts": self.agent_session.config.model.tts.model,
+            }
+            return VoiceTurnResult(
+                caller_transcript=caller_transcript,
+                caller_transliteration=caller_translit,
+                agent_reply=agent_reply,
+                agent_transliteration=agent_translit,
+                audio=tts_result.audio,
+                sample_rate=tts_result.sample_rate,
+                audio_format=tts_result.format,
+                state="awaiting_confirmation" if turn_res.pending_confirmation else "active",
+                is_terminal=False,
+                language=self.delivery_session.language,
+                booking_id=None,
+                latencies_ms=latencies,
+                xray=xray_data,
+            )
 
         # 2. Process turn through AgentSession in the caller's detected language
         # If the transcript contains an explicit Indic script (e.g. Malayalam), trust that
@@ -213,6 +317,63 @@ class VoiceSession:
     ) -> VoiceTurnResult:
         """Process a text turn without inbound audio, and synthesize speech reply."""
         clean_text = text.strip()
+
+        if (
+            self.agent_type == "delivery"
+            and self.delivery_engine is not None
+            and self.delivery_session is not None
+        ):
+            t_agent = time.perf_counter()
+            turn_res = await self.delivery_engine.process_turn(
+                self.delivery_session, clean_text
+            )
+            agent_ms = round((time.perf_counter() - t_agent) * 1000, 2)
+            agent_reply = turn_res.reply_text
+
+            t_tts = time.perf_counter()
+            tts_result = await self.tts.synthesize(
+                agent_reply, language=self.delivery_session.language, **kwargs
+            )
+            tts_ms = round((time.perf_counter() - t_tts) * 1000, 2)
+            self.latest_audio = tts_result.audio
+            self.agent_session.session.commit()
+
+            latencies = {
+                "stt_ms": 0.0,
+                "agent_ms": agent_ms,
+                "tts_ms": tts_ms,
+                "total_ms": round(agent_ms + tts_ms, 2),
+            }
+            caller_translit = transliterate_indic(
+                clean_text, self.delivery_session.language
+            )
+            agent_translit = transliterate_indic(
+                agent_reply, self.delivery_session.language
+            )
+            xray_data = dict(turn_res.xray)
+            xray_data["latencies_ms"] = latencies
+            xray_data["tool_invoked"] = turn_res.tool_executed
+            xray_data["sovereign_stack"] = {
+                "stt": self.agent_session.config.model.stt.model,
+                "reasoning": "Kelvi Core Engine",
+                "tts": self.agent_session.config.model.tts.model,
+            }
+            return VoiceTurnResult(
+                caller_transcript=clean_text,
+                caller_transliteration=caller_translit,
+                agent_reply=agent_reply,
+                agent_transliteration=agent_translit,
+                audio=tts_result.audio,
+                sample_rate=tts_result.sample_rate,
+                audio_format=tts_result.format,
+                state="awaiting_confirmation" if turn_res.pending_confirmation else "active",
+                is_terminal=False,
+                language=self.delivery_session.language,
+                booking_id=None,
+                latencies_ms=latencies,
+                xray=xray_data,
+            )
+
         detected_language = resolve_language(
             clean_text,
             hint=language,
@@ -308,6 +469,7 @@ class VoiceSessionManager:
         call_sid: str | None = None,
         caller_phone: str = "",
         channel: str = "voice_api",
+        agent_type: str = "clinic",
     ) -> VoiceSession:
         self._evict_expired()
         agent_session = AgentSession(
@@ -323,6 +485,7 @@ class VoiceSessionManager:
             stt_adapter=stt,
             tts_adapter=tts,
             default_language=config.model.stt.language,
+            agent_type=agent_type,
         )
         self._sessions[voice_session.call_sid] = voice_session
         self._last_accessed[voice_session.call_sid] = time.time()

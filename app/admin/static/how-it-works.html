@@ -331,6 +331,47 @@
     </div>
   </section>
 
+  <!-- Deep Dive 5: Declarative Tools & Safety Guardrails -->
+  <section class="arch-section">
+    <h2 class="arch-title">5. Declarative Tools &amp; Action Safety Guardrails</h2>
+    <p class="arch-body">
+      Voice agents must never perform irreversible state mutations (cancelling an order, deleting data, booking non-refundable appointments) based on ambiguous acoustic guesses. Kelvi AI provides native confirmation guardrails:
+    </p>
+    <div class="arch-grid">
+      <div class="arch-card">
+        <h3>The @tool Decorator</h3>
+        <p>Decorate any Python async function with <code>@tool</code>. Kelvi AI extracts the JSON Schema from type annotations and enforces parameter types at runtime.</p>
+      </div>
+      <div class="arch-card">
+        <h3>Native Confirmation Guardrail</h3>
+        <p>Setting <code>requires_confirmation=True</code> pauses execution and auto-generates a confirmation prompt in the caller's language before running.</p>
+      </div>
+      <div class="arch-card">
+        <h3>Indic Affirmative/Negative Routing</h3>
+        <p>Understands spoken confirmation dialects (<em>"ശരി"</em>, <em>"അതെ"</em>, <em>"റദ്ദാക്കിക്കോളൂ"</em> vs <em>"വേണ്ട"</em>, <em>"റദ്ദാക്കണ്ട"</em>, <em>"nahi"</em>) without hallucinations.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Deep Dive 6: Engine X-Ray Telemetry -->
+  <section class="arch-section">
+    <h2 class="arch-title">6. Built-in Engine X-Ray Telemetry</h2>
+    <p class="arch-body">
+      Instead of treating the voice agent as an opaque black box, every conversational turn produces structured event telemetry visible in real time:
+    </p>
+    <div class="code-block">
+[0.12s] STT Transcript: "naale raavile 10 manikku slot undo?" (Malayalam)
+[0.18s] Indic Engine: Language=ml-IN, Transliteration resolved
+[0.22s] Intent Parser: Fast-path rule matched -> intent=CHECK_AVAILABILITY
+[0.25s] Entity Extractor: date="2026-11-12", time="10:00 AM" (deterministic regex)
+[0.31s] Tool Execution: check_availability(date="2026-11-12", time="10:00") -> AVAILABLE
+[0.45s] Response Generator: Localized template -> "നാളെ രാവിലെ 10 മണിക്ക് ഡോക്ടർ ലഭ്യമാണ്..."
+[1.35s] TTS Synthesis: Gnani Timbre ml-IN stream ready
+-----------------------------------------------------------------------------------
+Total turn latency: 1.35s (Zero LLM tokens spent, 100% deterministic)
+    </div>
+  </section>
+
   <!-- CTA Box -->
   <div class="cta-box">
     <h2>Experience the Live Reference Agent</h2>

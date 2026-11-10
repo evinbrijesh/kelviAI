@@ -3,7 +3,7 @@
 > **Sovereign Indian Voice Agent for Multilingual Healthcare Appointments**  
 > Built for the Gnani AI Hackathon using the **Gnani Artha Stack**: **Prisma v2.5 (STT)** $\rightarrow$ **Evon v3.3 (Reasoning LLM)** $\rightarrow$ **Timbre v2.5 (TTS)** with zero-drop telephony guardrails.
 
-[![Tests](https://img.shields.io/badge/tests-360%20passed-brightgreen.svg)](#test-suite)
+[![Tests](https://img.shields.io/badge/tests-361%20passed-brightgreen.svg)](#test-suite)
 [![Architecture](https://img.shields.io/badge/stack-Gnani%20Artha%20Sovereign%20Triad-blue.svg)](#the-artha-sovereign-triad)
 [![Latency](https://img.shields.io/badge/turn%20latency-%3C500ms%20local%20guardrail-orange.svg)](#credit--token-protection-shield)
 [![Privacy](https://img.shields.io/badge/data%20sovereignty-100%25%20India%20On--Prem-purple.svg)](#data-sovereignty--compliance)
@@ -181,7 +181,7 @@ Open your browser to:
 
 ## Verification & Test Suite
 
-KelviAI includes a comprehensive 342-test automated verification suite covering Indic regex parsing, concurrency, audio streaming, credit caching, and Evon hybrid gating:
+KelviAI includes a comprehensive 361-test automated verification suite covering Indic regex parsing, concurrency, audio streaming, credit caching, and Evon hybrid gating:
 
 ```bash
 # Run code formatting and linter check
@@ -192,7 +192,7 @@ pytest -v
 ```
 
 ```text
-======================== 360 passed in 3.42s ========================
+======================== 361 passed in 3.42s ========================
 ```
 
 ---
@@ -247,7 +247,7 @@ async def cancel_order(order_id: str) -> dict:
 │   └── cli.py                 # "kelvi init" project generator
 ├── examples/
 │   └── delivery_agent/        # Second reference app: Indian-language delivery bot
-└── tests/                     # 360 automated pytest test cases
+└── tests/                     # 361 automated pytest test cases
 ```
 
 ---

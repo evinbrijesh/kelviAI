@@ -50,6 +50,7 @@ class VoiceStartRequest(BaseModel):
     caller_phone: str = Field(default="", description="Caller phone number (e.g. +919000000001)")
     call_sid: str | None = Field(default=None, description="Optional call identifier")
     channel: str = Field(default="voice_api", description="Channel identifier (e.g. telephony)")
+    agent_type: str = Field(default="clinic", description="Agent type: 'clinic' or 'delivery'")
 
 
 class VoiceStartResponse(BaseModel):
@@ -102,6 +103,10 @@ class VoiceStatusResponse(BaseModel):
     active_calls: int
 
 
+def _state_val(s: Any) -> str:
+    return str(getattr(s, "value", s))
+
+
 def get_dependencies(request: Request) -> tuple[AppConfig, AdapterRegistry]:
     config: AppConfig | None = getattr(request.app.state, "config", None)
     registry: AdapterRegistry | None = getattr(request.app.state, "registry", None)
@@ -152,6 +157,7 @@ async def start_voice_session(
         call_sid=body.call_sid,
         caller_phone=body.caller_phone,
         channel=body.channel,
+        agent_type=body.agent_type,
     )
 
     turn = await voice_session.start(emit_greeting=True)
@@ -162,7 +168,7 @@ async def start_voice_session(
     return VoiceStartResponse(
         call_sid=voice_session.call_sid,
         greeting=turn.agent_reply,
-        state=turn.state.value,
+        state=_state_val(turn.state),
         language=turn.language,
         audio_base64=audio_b64,
         audio_url=audio_url,
@@ -247,7 +253,7 @@ async def process_voice_turn(
         caller_transliteration=turn.caller_transliteration,
         agent_reply=turn.agent_reply,
         agent_transliteration=turn.agent_transliteration,
-        state=turn.state.value,
+        state=_state_val(turn.state),
         language=turn.language,
         is_terminal=turn.is_terminal,
         booking_id=turn.booking_id,
@@ -291,7 +297,7 @@ async def process_text_turn(
         caller_transliteration=turn.caller_transliteration,
         agent_reply=turn.agent_reply,
         agent_transliteration=turn.agent_transliteration,
-        state=turn.state.value,
+        state=_state_val(turn.state),
         language=turn.language,
         is_terminal=turn.is_terminal,
         booking_id=turn.booking_id,

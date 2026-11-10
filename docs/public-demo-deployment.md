@@ -1,6 +1,6 @@
-# VaaniKit Public Demo & Deployment Specification
+# Kelvi AI Public Demo & Deployment Specification
 
-This document outlines the architecture, requirements, and design for the judge-facing public deployment of VaaniKit.
+This document outlines the architecture, requirements, and design for the judge-facing public deployment of Kelvi AI.
 
 ---
 

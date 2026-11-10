@@ -114,6 +114,28 @@
 
   .brand-text { font: 400 19px/1 var(--display); letter-spacing: -0.005em; }
 
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13.5px;
+    font-weight: 500;
+  }
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    padding: 8px 12px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 6px;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+  .nav-links a:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
   .pill {
     display: inline-flex;
     align-items: center;
@@ -650,10 +672,17 @@
 <div class="veil" aria-hidden="true"></div>
 
 <header class="topbar">
-  <div class="brand">
+  <a href="/" class="brand" style="text-decoration: none; color: inherit;">
     <span class="mark" aria-hidden="true">K</span>
     <span class="brand-text">KelviAI</span>
-  </div>
+  </a>
+  <nav class="nav-links">
+    <a href="/">Framework</a>
+    <a href="/demo">Voice Demo</a>
+    <a href="/how-it-works">How It Works</a>
+    <a href="/docs">Docs</a>
+    <a href="/admin/ui" style="color: var(--accent); font-weight: 600;">Admin</a>
+  </nav>
   <span class="pill"><span class="dot" aria-hidden="true"></span>non-production</span>
 </header>
 
