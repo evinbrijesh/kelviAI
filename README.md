@@ -3,7 +3,7 @@
 > **Sovereign Indian Voice Agent for Multilingual Healthcare Appointments**  
 > Built for the Gnani AI Hackathon using the **Gnani Artha Stack**: **Prisma v2.5 (STT)** $\rightarrow$ **Evon v3.3 (Reasoning LLM)** $\rightarrow$ **Timbre v2.5 (TTS)** with zero-drop telephony guardrails.
 
-[![Tests](https://img.shields.io/badge/tests-342%20passed-brightgreen.svg)](#test-suite)
+[![Tests](https://img.shields.io/badge/tests-360%20passed-brightgreen.svg)](#test-suite)
 [![Architecture](https://img.shields.io/badge/stack-Gnani%20Artha%20Sovereign%20Triad-blue.svg)](#the-artha-sovereign-triad)
 [![Latency](https://img.shields.io/badge/turn%20latency-%3C500ms%20local%20guardrail-orange.svg)](#credit--token-protection-shield)
 [![Privacy](https://img.shields.io/badge/data%20sovereignty-100%25%20India%20On--Prem-purple.svg)](#data-sovereignty--compliance)
@@ -192,7 +192,38 @@ pytest -v
 ```
 
 ```text
-======================== 342 passed in 2.23s ========================
+======================== 360 passed in 3.42s ========================
+```
+
+---
+
+## Kelvi AI Framework: Build Custom Voice Agents
+
+Kelvi AI is distributed as both a production reference service and an importable framework:
+
+### 1. Scaffold a new voice agent in 5 seconds
+```bash
+kelvi init my-delivery-agent --template delivery
+cd my-delivery-agent
+python main.py
+```
+
+### 2. Declare custom tools with safety guardrails
+```python
+from kelvi import tool
+
+@tool(
+    name="cancel_order",
+    description="Cancel active customer order",
+    requires_confirmation=True,  # Safety guardrail: auto-asks confirmation in caller's Indic dialect!
+    confirmation_prompt={
+        "ml-IN": "ഓർഡർ റദ്ദാക്കണമെന്ന് ഉറപ്പാണോ?",
+        "hi-IN": "क्या आप आर्डर रद्द करना चाहते हैं?",
+        "en-IN": "Are you sure you want to cancel your order?",
+    }
+)
+async def cancel_order(order_id: str) -> dict:
+    return {"status": "cancelled", "refund": "₹340"}
 ```
 
 ---
@@ -201,26 +232,22 @@ pytest -v
 
 ```text
 ├── agent.yaml                 # Agent persona, tools, and model configuration
-├── app/
+├── app/                       # Reference Clinic Assistant backend & Web UI
 │   ├── admin/                 # AMO-LED Operations UI and static assets
-│   ├── agent/
-│   │   ├── session.py         # Dialogue state machine & entity handling
-│   │   ├── replies.py         # Multilingual response templates
-│   │   └── spoken_datetime.py # Natural Indic spoken date/time formatter
-│   ├── api/
-│   │   └── voice.py           # REST & streaming voice session endpoints
-│   ├── bridge/
-│   │   ├── voice_session.py   # Turn timing, audio WAV wrapping & telemetry
-│   │   └── audio_utils.py     # Linear PCM validation & RIFF packing
+│   ├── agent/                 # Clinic dialogue state machine & entity handling
+│   ├── api/                   # REST & streaming voice session endpoints
+│   ├── bridge/                # Turn timing, audio WAV wrapping & telemetry
 │   ├── db/                    # SQLAlchemy models & migrations
-│   ├── llm/
-│   │   ├── evon_adapter.py    # Evon v3.3 reasoning engine & hybrid gating
-│   │   ├── evon_stub.py       # Live EvonDateTimeResolver
-│   │   ├── gnani_adapters.py  # Gnani Prisma STT & Timbre TTS adapters
-│   │   ├── transliteration.py # Live Malayalam->Manglish & Devanagari->Hinglish
-│   │   └── custom_resolver.py # IST deterministic Indic temporal engine
-│   └── tools/                 # Transactional booking & clinic availability tools
-└── tests/                     # 342 automated pytest test cases
+│   ├── llm/                   # Gnani Artha adapters & Evon gating
+│   └── tools/                 # Transactional clinic tools
+├── kelvi/                     # Core sovereign Indic voice framework
+│   ├── core/                  # Engine orchestrator, Session state machine, X-Ray
+│   ├── indic/                 # Language detection, discourse cleaning, transliteration
+│   ├── tools/                 # @tool decorator & ToolRegistry with confirmation checks
+│   └── cli.py                 # "kelvi init" project generator
+├── examples/
+│   └── delivery_agent/        # Second reference app: Indian-language delivery bot
+└── tests/                     # 360 automated pytest test cases
 ```
 
 ---

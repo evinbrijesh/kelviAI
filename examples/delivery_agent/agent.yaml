@@ -1,0 +1,28 @@
+agent:
+  name: "QuickBites Delivery Assistant"
+  role: "Customer Delivery & Dispatch Voice Assistant"
+  primary_language: "ml-IN"
+  supported_languages:
+    - "ml-IN"
+    - "hi-IN"
+    - "en-IN"
+  greeting:
+    ml: "നമസ്കാരം! ക്വിക്ക്ബൈറ്റ്സ് സപ്പോർട്ടിൽ നിന്നാണ്. ഓർഡർ സംബന്ധിച്ച് എന്ത് സഹായമാണ് വേണ്ടത്?"
+    hi: "नमस्ते! क्विकबाइट्स सपोर्ट में आपका स्वागत है। आपके आर्डर के संबंध में क्या सहायता चाहिए?"
+    en: "Hello! Welcome to QuickBites Support. How can I assist you with your order today?"
+
+tools:
+  - name: "track_order"
+    description: "Fetch live delivery status, rider location, and ETA"
+    enabled: true
+    requires_confirmation: false
+
+  - name: "cancel_order"
+    description: "Cancel an active order and trigger instant refund"
+    enabled: true
+    requires_confirmation: true
+
+  - name: "call_delivery_partner"
+    description: "Bridge phone call to assigned delivery partner"
+    enabled: true
+    requires_confirmation: false
