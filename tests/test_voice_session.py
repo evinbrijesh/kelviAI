@@ -231,3 +231,133 @@ def test_voice_session_manager(database: Database, agent_config: Any) -> None:
         removed = manager.remove("call-test-1")
         assert removed is v1
         assert manager.active_count() == 0
+
+
+class ScriptSwitchSTT(STTAdapter):
+    """Simulates STT behavior on multi-turn Malayalam dialogue."""
+    def __init__(self, turn2_text: str = "Johnson", turn2_lang: str = "kn-IN") -> None:
+        self.turn = 0
+        self.turn2_text = turn2_text
+        self.turn2_lang = turn2_lang
+        self.stt_languages_called: list[str | None] = []
+
+    async def transcribe(self, audio: bytes, **kwargs: Any) -> STTResult:
+        self.turn += 1
+        lang = kwargs.get("language")
+        self.stt_languages_called.append(lang)
+        if self.turn == 1:
+            return STTResult(
+                text="നാളെ 10:00",
+                language="ml-IN",
+                confidence=0.99,
+                duration_ms=1000,
+            )
+        return STTResult(
+            text=self.turn2_text,
+            language=self.turn2_lang,
+            confidence=0.95,
+            duration_ms=600,
+        )
+
+
+@pytest.mark.asyncio
+async def test_malayalam_call_does_not_switch_to_kannada_on_johnson(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    """Regression test: saying 'johnson' in a Malayalam session must stay Malayalam,
+
+    even if STT acoustically hints Kannada (kn-IN) or transcribes in Latin/Kannada script.
+    """
+    config = load_config(agent_config)
+    stt = ScriptSwitchSTT(turn2_text="Johnson", turn2_lang="kn-IN")
+    tts = DummyTTS()
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=CustomDateTimeResolver(),
+            caller_phone="+919000000009",
+        )
+        voice = VoiceSession(agent, stt, tts)
+        await voice.start()
+
+        audio_input = wrap_pcm_in_wav(b"\x00\x00" * 400, sample_rate=16000)
+
+        # Turn 1: Slot requested in Malayalam
+        turn1 = await voice.process_turn(audio_input)
+        assert turn1.language == "ml-IN"
+        assert agent.language == "ml-IN"
+        assert agent.state == AgentState.AWAITING_NAME
+
+        # Turn 2: Caller says "Johnson", STT returned kn-IN hint
+        turn2 = await voice.process_turn(audio_input)
+        assert turn2.language == "ml-IN"
+        assert agent.language == "ml-IN"
+        assert agent.caller_name == "Johnson"
+        assert tts.languages[-1] == "ml-IN"
+        assert "അപ്പോയിന്റ്മെന്റ്" in turn2.agent_reply or "ഉറപ്പാക്കാമോ" in turn2.agent_reply
+        assert "ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್" not in turn2.agent_reply  # Must not contain Kannada
+
+        # Check STT called with ml-IN on Turn 2 (locked language), not indic-auto
+        assert stt.stt_languages_called[1] == "ml-IN"
+
+
+@pytest.mark.asyncio
+async def test_malayalam_call_does_not_switch_to_kannada_on_kannada_script_name(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    """If STT decoded the name into Kannada script (ಜಾನ್ಸನ್), session still stays Malayalam."""
+    config = load_config(agent_config)
+    stt = ScriptSwitchSTT(turn2_text="ಜಾನ್ಸನ್", turn2_lang="kn-IN")
+    tts = DummyTTS()
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=CustomDateTimeResolver(),
+            caller_phone="+919000000010",
+        )
+        voice = VoiceSession(agent, stt, tts)
+        await voice.start()
+
+        audio_input = wrap_pcm_in_wav(b"\x00\x00" * 400, sample_rate=16000)
+        await voice.process_turn(audio_input)
+
+        turn2 = await voice.process_turn(audio_input)
+        assert turn2.language == "ml-IN"
+        assert agent.language == "ml-IN"
+        assert tts.languages[-1] == "ml-IN"
+        assert "ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್" not in turn2.agent_reply
+
+
+@pytest.mark.asyncio
+async def test_malayalam_text_turn_does_not_flip_to_english_on_johnson(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    """Typing 'johnson' in text fallback must keep Malayalam, not switch to en-IN."""
+    config = load_config(agent_config)
+    tts = DummyTTS()
+
+    with database.session() as session:
+        agent = AgentSession(
+            session=session,
+            config=config,
+            resolver=CustomDateTimeResolver(),
+            caller_phone="+919000000011",
+        )
+        voice = VoiceSession(agent, DummySTT(), tts)
+        await voice.start()
+
+        # Turn 1 in Malayalam
+        await voice.process_text_turn("നാളെ രാവിലെ 10 മണിക്ക്")
+        assert agent.language == "ml-IN"
+        assert agent.state == AgentState.AWAITING_NAME
+
+        # Turn 2: Caller enters name 'johnson'
+        turn2 = await voice.process_text_turn("johnson")
+        assert turn2.language == "ml-IN"
+        assert agent.language == "ml-IN"
+        assert agent.caller_name == "johnson"
+        assert tts.languages[-1] == "ml-IN"

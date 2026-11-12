@@ -13,7 +13,7 @@ from app.bridge.audio_utils import (
 )
 from app.config import AppConfig
 from app.llm.interfaces import DateTimeResolver, STTAdapter, TTSAdapter
-from app.llm.language import detect_language, normalize_language
+from app.llm.language import detect_language, normalize_language, resolve_language
 from app.llm.transliteration import transliterate_indic
 
 if TYPE_CHECKING:
@@ -192,7 +192,13 @@ class VoiceSession:
         **kwargs: Any,
     ) -> VoiceTurnResult:
         """Transcribe caller audio, drive agent session, and synthesize speech reply."""
-        lang = language or self.default_language
+        explicit_lang = normalize_language(language)
+        if explicit_lang:
+            stt_lang = explicit_lang
+        elif self.agent_session._language_locked:
+            stt_lang = self.agent_session.language
+        else:
+            stt_lang = self.default_language
 
         is_valid, diag = validate_audio_bytes(audio_bytes)
         if not is_valid:
@@ -206,7 +212,7 @@ class VoiceSession:
 
         # 1. Transcribe caller audio
         t_stt = time.perf_counter()
-        stt_result = await self.stt.transcribe(prepared_audio, language=lang, **kwargs)
+        stt_result = await self.stt.transcribe(prepared_audio, language=stt_lang, **kwargs)
         stt_ms = round((time.perf_counter() - t_stt) * 1000, 2)
         caller_transcript = stt_result.text.strip()
 
@@ -267,12 +273,28 @@ class VoiceSession:
             )
 
         # 2. Process turn through AgentSession in the caller's detected language
-        detected_language = normalize_language(language) or self._script_language_hint(
-            caller_transcript
-        )
+        if explicit_lang:
+            detected_language = explicit_lang
+            turn_lang = explicit_lang
+        elif self.agent_session._language_locked or self.agent_session.state in (
+            AgentState.AWAITING_NAME,
+            AgentState.AWAITING_CONFIRMATION,
+        ):
+            detected_language = self.agent_session.language
+            turn_lang = None
+        else:
+            detected_language = self._script_language_hint(
+                caller_transcript
+            ) or resolve_language(
+                caller_transcript,
+                hint=stt_result.language,
+                default=self.agent_session.language,
+            )
+            turn_lang = detected_language
+
         t_agent = time.perf_counter()
         agent_reply = await self.agent_session.process_turn(
-            caller_transcript, language=detected_language
+            caller_transcript, language=turn_lang
         )
         agent_ms = round((time.perf_counter() - t_agent) * 1000, 2)
 
@@ -389,12 +411,29 @@ class VoiceSession:
                 xray=xray_data,
             )
 
-        detected_language = normalize_language(language) or self._script_language_hint(
-            clean_text
-        )
+        explicit_lang = normalize_language(language)
+        if explicit_lang:
+            detected_language = explicit_lang
+            turn_lang = explicit_lang
+        elif self.agent_session._language_locked or self.agent_session.state in (
+            AgentState.AWAITING_NAME,
+            AgentState.AWAITING_CONFIRMATION,
+        ):
+            detected_language = self.agent_session.language
+            turn_lang = None
+        else:
+            detected_language = self._script_language_hint(
+                clean_text
+            ) or resolve_language(
+                clean_text,
+                hint=None,
+                default=self.agent_session.language,
+            )
+            turn_lang = detected_language
+
         t_agent = time.perf_counter()
         agent_reply = await self.agent_session.process_turn(
-            clean_text, language=detected_language
+            clean_text, language=turn_lang
         )
         agent_ms = round((time.perf_counter() - t_agent) * 1000, 2)
 

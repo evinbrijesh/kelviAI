@@ -79,10 +79,17 @@ class KelviEngine:
         cleaned = clean_discourse_markers(transcript, session.language)
         xray.add_event("discourse_cleaned", raw=transcript, cleaned=cleaned)
 
-        # 2. Detect language
-        detected = detect_language(transcript)
-        if detected:
-            session.language = detected
+        # 2. Detect language (keep Indic language on confirmation or short name)
+        detected: str | None = None
+        if not session.pending_confirmation:
+            detected = detect_language(transcript)
+            is_short = len(transcript.strip().split()) <= 2
+            is_indic = bool(session.language and session.language != "en-IN")
+            if detected:
+                if is_short and is_indic and detected in ("en-IN", "kn-IN"):
+                    pass
+                else:
+                    session.language = detected
         xray.add_event(
             "language_resolved",
             language=session.language,
