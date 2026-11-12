@@ -99,7 +99,7 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         ),
         available="{date} को {time} बजे स्लॉट उपलब्ध है।",
         nearest="{date} को {time} बजे स्लॉट उपलब्ध नहीं है; निकटतम उपलब्ध स्लॉट {slot} है।",
-        confirming="{name}, {clinic} में {date} को {time} बजे अपॉइंटमेंट की पुष्टि करें? क्या मैं बुक करूँ?",
+        confirming="{name}, {clinic} में {date} को {time} अपॉइंटमेंट की पुष्टि करें? क्या मैं बुक करूँ?",
         booking_failed="बुकिंग की पुष्टि नहीं हो सकी ({status})।",
         booked=(
             "{name}, {clinic} में {slot} पर अपॉइंटमेंट बुक हो गया है "
@@ -131,7 +131,7 @@ _TEMPLATES: dict[str, ReplyTemplates] = {
         ),
         available="{date} रोजी {time} वाजता स्लॉट उपलब्ध आहे.",
         nearest="{date} रोजी {time} वाजता स्लॉट उपलब्ध नाही; सर्वात जवळचा उपलब्ध स्लॉट {slot} आहे.",
-        confirming="{name}, {clinic} मध्ये {date} रोजी {time} वाजता अपॉइंटमेंट निश्चित करू का?",
+        confirming="{name}, {clinic} मध्ये {date} रोजी {time} अपॉइंटमेंट निश्चित करू का?",
         booking_failed="बुकिंग निश्चित करता आली नाही ({status}).",
         booked=(
             "{name}, {clinic} मध्ये {slot} ला अपॉइंटमेंट बुक झाली आहे "

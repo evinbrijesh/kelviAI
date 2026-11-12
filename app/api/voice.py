@@ -84,6 +84,8 @@ class VoiceTurnResponse(BaseModel):
     language: str
     is_terminal: bool
     booking_id: str | None
+    booking_patient: str | None = None
+    booking_slot: dict[str, str] | None = None
     audio_base64: str
     audio_url: str
     latencies_ms: dict[str, float]
@@ -257,6 +259,8 @@ async def process_voice_turn(
         language=turn.language,
         is_terminal=turn.is_terminal,
         booking_id=turn.booking_id,
+        booking_patient=turn.booking_patient,
+        booking_slot=turn.booking_slot,
         audio_base64=audio_b64,
         audio_url=audio_url,
         latencies_ms=turn.latencies_ms,
@@ -301,6 +305,8 @@ async def process_text_turn(
         language=turn.language,
         is_terminal=turn.is_terminal,
         booking_id=turn.booking_id,
+        booking_patient=turn.booking_patient,
+        booking_slot=turn.booking_slot,
         audio_base64=audio_b64,
         audio_url=audio_url,
         latencies_ms=turn.latencies_ms,

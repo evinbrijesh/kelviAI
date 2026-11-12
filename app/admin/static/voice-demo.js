@@ -448,12 +448,14 @@ async function handleTurnResult(turn) {
   if (turn.booking_id && el.result) {
     if (el['res-clinic']) el['res-clinic'].textContent = 'Nila Family Clinic (Synthetic)';
     if (el['res-ref']) el['res-ref'].textContent = `KLV-${turn.booking_id.padStart(4, '0')}`;
-    if (turn.xray?.resolved_datetime) {
+    if (turn.booking_slot) {
+      if (el['res-time']) el['res-time'].textContent = `${turn.booking_slot.date} at ${turn.booking_slot.time}`;
+    } else if (turn.xray?.resolved_datetime) {
       const r = turn.xray.resolved_datetime;
       if (el['res-time']) el['res-time'].textContent = `${r.date} at ${r.time || '10:00 AM'}`;
     }
     // Extract patient name if in xray or text
-    const patientName = turn.xray?.resolved_datetime?.caller_name || 'Rahul Nair';
+    const patientName = turn.booking_patient || turn.xray?.resolved_datetime?.caller_name || '—';
     if (el['res-patient']) el['res-patient'].textContent = patientName;
     el.result.hidden = false;
   }

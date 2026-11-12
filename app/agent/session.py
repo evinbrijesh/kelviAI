@@ -160,6 +160,13 @@ class AgentSession:
         template: str = getattr(self.templates, key)
         return template.format(**kwargs) if kwargs else template
 
+    def _spoken_time_part(self, value: Any) -> str:
+        """Time phrase without the trailing time word that Hindi/Marathi templates add."""
+        spoken = format_spoken_time(value, language=self.language)
+        if self.language.startswith(("hi", "mr")):
+            return spoken.removesuffix(" बजे").removesuffix(" वाजता")
+        return spoken
+
     def _set_language(self, text: str, hint: str | None = None) -> None:
         hinted = normalize_language(hint)
         if hinted:
@@ -343,14 +350,14 @@ class AgentSession:
             self.state = AgentState.AWAITING_NAME
             if chosen == self.requested_time:
                 reply = self._t(
-                    "available", date=spoken_d, time=spoken_t
+                    "available", date=spoken_d, time=self._spoken_time_part(chosen)
                 )
             else:
                 spoken_chosen = format_spoken_time(chosen, language=self.language)
                 reply = self._t(
                     "nearest",
                     date=spoken_d,
-                    time=format_spoken_time(self.requested_time, language=self.language),
+                    time=self._spoken_time_part(self.requested_time),
                     slot=spoken_chosen,
                 )
 
@@ -421,7 +428,7 @@ class AgentSession:
                     "saved_name_confirm",
                     name=self.caller_name,
                     date=spoken_d,
-                    time=spoken_t,
+                    time=self._spoken_time_part(self.chosen_time),
                     clinic=self.clinic_name,
                 )
             else:
@@ -492,12 +499,19 @@ class AgentSession:
         self.booking_result = booking
         summary = (
             f"{name} booked an appointment at {self.clinic_name} on "
-            f"{booking.get('slot_start')} (reference {self.booking_id})."
+            f"{self.chosen_date.strftime('%d %B %Y')} at {self.chosen_time} "
+            f"(reference {self.booking_id})."
         )
-        spoken_slot = format_spoken_slot(
-            booking.get("slot_start") or f"{self.chosen_date} {self.chosen_time}",
-            language=self.language,
-        )
+        if self.language.startswith(("hi", "mr")):
+            spoken_slot = (
+                f"{format_spoken_date(self.chosen_date, language=self.language)} "
+                f"{self._spoken_time_part(self.chosen_time)}"
+            )
+        else:
+            spoken_slot = format_spoken_slot(
+                booking.get("slot_start") or f"{self.chosen_date} {self.chosen_time}",
+                language=self.language,
+            )
         reply = self._t(
             "booked",
             name=name,

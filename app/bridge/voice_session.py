@@ -13,7 +13,7 @@ from app.bridge.audio_utils import (
 )
 from app.config import AppConfig
 from app.llm.interfaces import DateTimeResolver, STTAdapter, TTSAdapter
-from app.llm.language import detect_language, normalize_language, resolve_language
+from app.llm.language import detect_language, normalize_language
 from app.llm.transliteration import transliterate_indic
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,8 @@ class VoiceTurnResult:
     caller_transliteration: str | None = None
     agent_transliteration: str | None = None
     booking_id: str | None = None
+    booking_patient: str | None = None
+    booking_slot: dict[str, str] | None = None
     latencies_ms: dict[str, float] = field(default_factory=dict)
     xray: dict[str, Any] = field(default_factory=dict)
 
@@ -76,6 +78,13 @@ class VoiceSession:
     @property
     def language(self) -> str:
         return self.agent_session.language
+
+    def _booking_slot(self) -> dict[str, str] | None:
+        chosen_date = self.agent_session.chosen_date
+        chosen_time = self.agent_session.chosen_time
+        if not self.agent_session.booking_id or chosen_date is None or chosen_time is None:
+            return None
+        return {"date": chosen_date.isoformat(), "time": chosen_time[:5]}
 
     def _build_xray(self, latencies_ms: dict[str, float]) -> dict[str, Any]:
         engine = (
@@ -161,6 +170,17 @@ class VoiceSession:
             xray=self._build_xray(latencies),
         )
 
+
+    @staticmethod
+    def _script_language_hint(text: str) -> str | None:
+        """Only an Indic script in the utterance may switch a locked call's language.
+
+        English is never treated as a switch signal: names and mixed phrases are typed
+        in Latin script and would otherwise flip an ongoing Hindi or Malayalam call.
+        """
+        detected = detect_language(text)
+        return detected if detected and detected != "en-IN" else None
+
     async def process_turn(
         self,
         audio_bytes: bytes,
@@ -244,21 +264,9 @@ class VoiceSession:
             )
 
         # 2. Process turn through AgentSession in the caller's detected language
-        # If the transcript contains an explicit Indic script (e.g. Malayalam), trust that
-        # ground-truth script over any probabilistic acoustic hint from the STT engine.
-        explicit_lang = normalize_language(language)
-        if explicit_lang:
-            detected_language = explicit_lang
-        else:
-            script_lang = detect_language(caller_transcript)
-            if script_lang and script_lang != "en-IN":
-                detected_language = script_lang
-            else:
-                detected_language = resolve_language(
-                    caller_transcript,
-                    hint=stt_result.language,
-                    default=self.agent_session.language,
-                )
+        detected_language = normalize_language(language) or self._script_language_hint(
+            caller_transcript
+        )
         t_agent = time.perf_counter()
         agent_reply = await self.agent_session.process_turn(
             caller_transcript, language=detected_language
@@ -289,7 +297,9 @@ class VoiceSession:
             "total_ms": round(stt_ms + agent_ms + tts_ms, 2),
         }
 
-        caller_translit = transliterate_indic(caller_transcript, detected_language)
+        caller_translit = transliterate_indic(
+            caller_transcript, detected_language or self.agent_session.language
+        )
         agent_translit = transliterate_indic(agent_reply, self.agent_session.language)
 
         return VoiceTurnResult(
@@ -304,6 +314,8 @@ class VoiceSession:
             is_terminal=is_terminal,
             language=self.agent_session.language,
             booking_id=self.agent_session.booking_id,
+            booking_patient=self.agent_session.caller_name,
+            booking_slot=self._booking_slot(),
             latencies_ms=latencies,
             xray=self._build_xray(latencies),
         )
@@ -374,10 +386,8 @@ class VoiceSession:
                 xray=xray_data,
             )
 
-        detected_language = resolve_language(
-            clean_text,
-            hint=language,
-            default=self.agent_session.language,
+        detected_language = normalize_language(language) or self._script_language_hint(
+            clean_text
         )
         t_agent = time.perf_counter()
         agent_reply = await self.agent_session.process_turn(
@@ -421,6 +431,8 @@ class VoiceSession:
             is_terminal=is_terminal,
             language=self.agent_session.language,
             booking_id=self.agent_session.booking_id,
+            booking_patient=self.agent_session.caller_name,
+            booking_slot=self._booking_slot(),
             latencies_ms=latencies,
             xray=self._build_xray(latencies),
         )
