@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,10 @@ from app.llm.interfaces import DateTimeResolver, STTAdapter, TTSAdapter
 from app.llm.language import detect_language, normalize_language
 from app.llm.transliteration import transliterate_indic
 
+if TYPE_CHECKING:
+    from kelvi import KelviEngine
+    from kelvi import Session as KelviSession
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +30,7 @@ class VoiceTurnResult:
     audio: bytes
     sample_rate: int
     audio_format: str
-    state: AgentState
+    state: AgentState | str
     is_terminal: bool
     language: str
     caller_transliteration: str | None = None
@@ -56,16 +60,15 @@ class VoiceSession:
         self.default_language = default_language
         self.latest_audio: bytes | None = None
         self.agent_type = agent_type
+        self.delivery_engine: KelviEngine | None = None
+        self.delivery_session: KelviSession | None = None
         if agent_type == "delivery":
             from examples.delivery_agent.app import create_delivery_engine
-            from kelvi import Session as KelviSession
+            from kelvi import Session as DeliverySession
             self.delivery_engine = create_delivery_engine()
-            self.delivery_session = KelviSession(
+            self.delivery_session = DeliverySession(
                 session_id=agent_session.call_sid, language="ml-IN"
             )
-        else:
-            self.delivery_engine = None
-            self.delivery_session = None
 
     @property
     def call_sid(self) -> str:

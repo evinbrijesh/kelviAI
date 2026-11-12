@@ -15,6 +15,6 @@ def test_cli_init_project():
         assert (target / ".env.example").exists()
         assert (target / "README.md").exists()
 
-        content = (target / "tools.py").read_text()
+        content = (target / "tools.py").read_text(encoding="utf-8")
         assert "@tool" in content
         assert "check_availability" in content

@@ -83,12 +83,12 @@ PORT=8000
 
 def init_project(target_dir: Path, template: str = "clinic") -> None:
     target_dir.mkdir(parents=True, exist_ok=True)
-    (target_dir / "agent.yaml").write_text(_CLINIC_TEMPLATE_AGENT)
-    (target_dir / "tools.py").write_text(_CLINIC_TEMPLATE_TOOLS)
-    (target_dir / "main.py").write_text(_MAIN_PY)
-    (target_dir / ".env.example").write_text(_ENV_EXAMPLE)
+    (target_dir / "agent.yaml").write_text(_CLINIC_TEMPLATE_AGENT, encoding="utf-8")
+    (target_dir / "tools.py").write_text(_CLINIC_TEMPLATE_TOOLS, encoding="utf-8")
+    (target_dir / "main.py").write_text(_MAIN_PY, encoding="utf-8")
+    (target_dir / ".env.example").write_text(_ENV_EXAMPLE, encoding="utf-8")
     readme_text = f"# {target_dir.name}\n\nBuilt with Kelvi AI v{__version__}\n"
-    (target_dir / "README.md").write_text(readme_text)
+    (target_dir / "README.md").write_text(readme_text, encoding="utf-8")
     print(f"Created Kelvi AI agent in {target_dir.resolve()}")
     print("Next steps:")
     print(f"  cd {target_dir.name}")
