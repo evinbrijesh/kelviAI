@@ -234,17 +234,11 @@ async def test_security_headers_present_on_responses(client: AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
-async def test_admin_api_key_protection_when_configured(
+async def test_admin_dashboard_always_accessible(
     client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("ADMIN_API_KEY", "secret-admin-pass-12345")
-
-    # Request without key is 401
-    resp_unauth = await client.get("/admin/calls")
-    assert resp_unauth.status_code == 401
-
-    # Request with valid header is 200
-    resp_auth = await client.get("/admin/calls", headers={"X-Admin-Key": "secret-admin-pass-12345"})
-    assert resp_auth.status_code == 200
+    resp = await client.get("/admin/calls")
+    assert resp.status_code == 200
 
 

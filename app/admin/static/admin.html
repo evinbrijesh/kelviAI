@@ -885,35 +885,6 @@
     setStatus(node, "", "");
     node.hidden = false;
     node.className = "status error";
-    if (String(error.message).includes("401")) {
-      const input = el("input", {
-        type: "text",
-        value: adminApiKey,
-        placeholder: "Paste ADMIN_API_KEY here...",
-        style: "padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-family: var(--mono); font-size: 13px; margin: 0 8px; min-width: 220px;",
-      });
-      const btn = el("button", {
-        class: "ghost",
-        text: "Unlock Dashboard",
-        style: "margin-left:0;",
-        onclick: () => {
-          const val = input.value.trim();
-          if (val) {
-            sessionStorage.setItem("admin_api_key", val);
-            window.location.href = window.location.pathname + "?api_key=" + encodeURIComponent(val);
-          }
-        },
-      });
-      const msg = adminApiKey
-        ? "❌ Invalid API key. Please check ADMIN_API_KEY in Render: "
-        : "🔒 Admin API key required: ";
-      node.replaceChildren(
-        el("span", { text: msg }),
-        input,
-        btn,
-      );
-      return;
-    }
     node.replaceChildren(
       el("span", { text: `${label} (${error.message}).` }),
       el("button", { class: "ghost", text: "Retry", onclick: retry, style: "margin-left:0" }),
