@@ -112,6 +112,33 @@ async def test_agent_session_multi_turn_booking(
 
 
 @pytest.mark.asyncio
+async def test_agent_session_confirm_with_urappakkikko_and_variants(
+    database: Database, agent_config: Any, clinic_calendar: Calendar
+) -> None:
+    from app.config import load_config
+
+    config = load_config(agent_config)
+    resolver = CustomDateTimeResolver()
+    target_day = next_working_day()
+
+    for phrase in ("ഉറപ്പാക്കിക്കോ.", "പുറപ്പാക്കിക്കോ.", "ഉറപ്പിച്ചോളൂ"):
+        with database.session() as session:
+            agent = AgentSession(
+                session=session,
+                config=config,
+                resolver=resolver,
+                caller_phone="+919000000088",
+            )
+            agent.start()
+            await agent.process_turn(f"{target_day.isoformat()} 14:00-ന് വേണം")
+            await agent.process_turn("ജോൺസൺ എന്നുള്ള പേരിൽ ബുക്ക് ചെയ്തേക്കാമോ?")
+            assert agent.state == AgentState.AWAITING_CONFIRMATION
+            reply = await agent.process_turn(phrase)
+            assert agent.state == AgentState.COMPLETED
+            assert "റഫറൻസ്" in reply or "ബുക്ക് ചെയ്തു" in reply
+
+
+@pytest.mark.asyncio
 async def test_agent_session_booking_conflict_ends_call_as_failed(
     database: Database, agent_config: Any, clinic_calendar: Calendar
 ) -> None:
@@ -588,7 +615,8 @@ async def test_agent_session_reschedule_flow(
         assert "റഫറൻസ്" in r1
 
         # Turn 2: Provide reference and new date/time
-        r2 = await agent.process_turn(f"റഫറൻസ് {booking_id} നാളെ ഉച്ചയ്ക്ക് 2 മണിക്ക് മാറ്റണം")
+        utterance = f"റഫറൻസ് {booking_id} {target_date.isoformat()} ഉച്ചയ്ക്ക് 2 മണിക്ക് മാറ്റണം"
+        r2 = await agent.process_turn(utterance)
         assert agent.state == AgentState.COMPLETED
         assert "മാറ്റി" in r2
 

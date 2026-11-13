@@ -405,7 +405,12 @@ class EvonReasoningEngine:
             return "provide_name"
         if resolution.date is not None or resolution.time is not None:
             return "request_slot"
-        if re.search(r"അതെ|ശരി|യെസ്|yes|okay|confirm|sure|ബുക്ക്\s+ചെയ്തോ", u_lower):
+        confirm_terms = (
+            r"അതെ|ശരി|യെസ്|yes|okay|confirm|sure|ബുക്ക്\s+ചെയ്തോ|"
+            r"ഉറപ്പാക്കിക്കോ|ഉറപ്പിച്ചോളൂ|ഉറപ്പിച്ചോ|ഉറപ്പാക്കാം|ഉറപ്പിക്കാം|ഉറപ്പാണ്|ഉറപ്പ്|"
+            r"പുറപ്പാക്കിക്കോ|പുതപ്പാക്കിക്കോ|പാക്കിക്കോ|urapp"
+        )
+        if re.search(confirm_terms, u_lower):
             return "confirm_booking"
         if re.search(r"വേണ്ട|വേണ്ടാ|ഇല്ല|no|cancel|reject", u_lower):
             return "reject_or_reschedule"

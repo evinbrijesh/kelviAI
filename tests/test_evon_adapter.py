@@ -5,11 +5,9 @@ from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 from app.llm.evon_adapter import EvonReasoningEngine
 from app.llm.evon_stub import EvonDateTimeResolver
-from app.main import app
 
 
 @pytest.mark.asyncio
@@ -111,10 +109,10 @@ async def test_evon_date_time_resolver_interface() -> None:
     assert res.time == time(10, 0)
 
 
-def test_voice_status_includes_reasoning_model() -> None:
-    with TestClient(app) as client:
-        resp = client.get("/api/voice/status")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert "reasoning_model" in data
-        assert "evon" in data["reasoning_model"].lower()
+@pytest.mark.asyncio
+async def test_voice_status_includes_reasoning_model(client: httpx.AsyncClient) -> None:
+    resp = await client.get("/api/voice/status")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "reasoning_model" in data
+    assert "evon" in data["reasoning_model"].lower()
