@@ -34,4 +34,4 @@ This is a non-production prototype. The demo runs in a browser rather than on a 
 - **Athul Sunil Kumar:** data layer and booking tools, observability and the dashboard, privacy safeguards, demo media.
 - **Evin Brijesh:** platform, Gnani speech and reasoning integration, the Kelvi framework, web pages.
 
-**Code:** https://github.com/evinbrijesh/kelviAI (Apache 2.0) · **Demo video:** [add YouTube link after upload] · **Run it:** see the Quickstart in the README.
+**Code:** https://github.com/evinbrijesh/kelviAI (Apache 2.0) · **Demo video:** https://youtu.be/hrUC8bQh5VA · **Run it:** see the Quickstart in the README.
