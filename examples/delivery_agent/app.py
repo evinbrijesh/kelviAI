@@ -5,7 +5,7 @@ from examples.delivery_agent.tools import call_delivery_partner, cancel_order, t
 from kelvi import KelviEngine, Session
 
 TRACK_PATTERN = re.compile(
-    r"(?:എവിടെ\s+എത്തി|സ്റ്റാറ്റസ്|ട്രാക്ക്|order\s+status|where\s+is\s+my\s+order|kahan\s+hai|track)",
+    r"(?:എവിടെ(?:\s+എ|യെ)ത്തി|സ്റ്റാറ്റസ്|ട്രാക്ക്|order\s+status|where\s+is\s+my\s+order|kahan\s+hai|track)",
     re.IGNORECASE,
 )
 

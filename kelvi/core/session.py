@@ -97,8 +97,8 @@ class Session:
         pos_re = _AFFIRMATIVE_PATTERNS.get(lang, _AFFIRMATIVE_PATTERNS["en-IN"])
         neg_re = _NEGATIVE_PATTERNS.get(lang, _NEGATIVE_PATTERNS["en-IN"])
 
-        if pos_re.search(text):
-            return True, True
         if neg_re.search(text):
             return True, False
+        if pos_re.search(text):
+            return True, True
         return False, False

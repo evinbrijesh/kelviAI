@@ -5,11 +5,12 @@ from kelvi import Session
 
 
 @pytest.mark.asyncio
-async def test_delivery_agent_track_order_malayalam():
+@pytest.mark.parametrize("text", ["എന്റെ ഓർഡർ എവിടെ എത്തി?", "എന്റെ ഓർഡർ എവിടെയെത്തി?"])
+async def test_delivery_agent_track_order_malayalam(text):
     engine = create_delivery_engine()
     session = Session(session_id="s1", language="ml-IN")
 
-    result = await engine.process_turn(session, "എന്റെ ഓർഡർ എവിടെ എത്തി?")
+    result = await engine.process_turn(session, text)
     assert result.tool_executed == "track_order"
     assert "സുരേഷ്" in result.reply_text or "പുറപ്പെട്ടു" in result.reply_text
     assert result.xray["turn_id"] is not None
@@ -57,3 +58,14 @@ async def test_delivery_agent_call_partner():
     res = await engine.process_turn(session, "ഡെലിവറി പാർട്ണറെ വിളിക്കാമോ?")
     assert res.tool_executed == "call_delivery_partner"
     assert "കണക്ട് ചെയ്യുന്നു" in res.reply_text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("answer", ["വേണ്ട, ശരി", "ഇല്ല, അത് ആണ് പ്രശ്നം"])
+async def test_delivery_agent_negative_wins_over_affirmative(answer):
+    engine = create_delivery_engine()
+    session = Session(session_id="neg", language="ml-IN")
+
+    assert (await engine.process_turn(session, "ഓർഡർ റദ്ദാക്കണം")).pending_confirmation is True
+    result = await engine.process_turn(session, answer)
+    assert result.tool_executed is None
